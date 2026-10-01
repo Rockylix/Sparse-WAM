@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: OpenMDW-1.1
+
+"""RoboLab policy server for the canonical Cosmos3-Edge Version1 strategy."""
+
+from cosmos_framework.inference.common.init import init_script
+
+init_script()
+
+import socket
+from pathlib import Path
+from typing import Any, Literal
+
+import pydantic
+import torch
+
+from cosmos_framework.inference.edge_core_stable import Version1Controller as OptimizedVersion1Controller
+from cosmos_framework.scripts.action_policy_server_robolab import (
+    RobolabPolicyService,
+    RobolabServerArgs,
+    _load_openpi_websocket_policy_server,
+)
+from cosmos_framework.scripts.action_policy_server_utils import get_local_ip
+from cosmos_framework.scripts.robolab_version1 import (
+    NUM_DENOISE_STEPS,
+    STRATEGY_VERSION,
+    TOKEN_BUDGET,
+    Version1Controller,
+)
+from cosmos_framework.utils import log
+
+
+class Version1ServerArgs(RobolabServerArgs):
+    asi_execution: Literal["legacy", "optimized-eager", "compile", "compile-graph"] = "legacy"
+    """Execution implementation; all modes keep the fixed C80/S104 algorithm."""
+    format_prompt_as_json: bool | None = True
+    """Use the structured prompt format expected by the Edge policy checkpoint."""
+    version1_output_dir: Path | None = None
+    """Optional per-request selection artifacts; disabled by default."""
+
+    @pydantic.model_validator(mode="after")
+    def _validate_execution_capture(self) -> "Version1ServerArgs":
+        if self.asi_execution in ("compile", "compile-graph") and any(
+            p is not None
+            for p in (self.hidden_state_capture_dir, self.block_residual_capture_dir, self.rope_qk_capture_dir)
+        ):
+            raise ValueError("Eager attention/block capture requires --asi-execution legacy or optimized-eager")
+        return self
+
+
+class Version1PolicyService(RobolabPolicyService):
+    def _build_setup_args(self, args: RobolabServerArgs) -> Any:
+        setup = super()._build_setup_args(args)
+        mode = getattr(args, "asi_execution", "legacy")
+        updates = {
+            "use_torch_compile": mode in ("compile", "compile-graph"),
+            "use_cuda_graphs": mode == "compile-graph",
+        }
+        return setup.model_copy(update=updates)
+
+    def __init__(self, args: Version1ServerArgs) -> None:
+        if int(args.num_steps) != NUM_DENOISE_STEPS or float(args.shift) != 5.0 or float(args.guidance) != 3.0:
+            raise ValueError("The fixed Edge policy requires --guidance 3, --num-steps 4 and --shift 5")
+        if args.format_prompt_as_json is not True:
+            raise ValueError("Version1 Edge inference requires --format-prompt-as-json True")
+        super().__init__(args)
+        self._version1_output_dir = (
+            args.version1_output_dir.expanduser().absolute() if args.version1_output_dir is not None else None
+        )
+        self._request_count = 0
+        original_generate = self.model.generate_samples_from_batch
+
+        def version1_generate(*generate_args: Any, **generate_kwargs: Any) -> Any:
+            request_index = self._request_count
+            controller_cls = Version1Controller if args.asi_execution == "legacy" else OptimizedVersion1Controller
+            execution_kwargs = (
+                {}
+                if args.asi_execution == "legacy"
+                else dict(
+                    optimized=True,
+                    compile_profile_decoder=True,
+                    compile_profile_kernel=False,
+                    cuda_graphs=args.asi_execution == "compile-graph",
+                    cache_layout=True,
+                )
+            )
+            controller = controller_cls(
+                torch=torch,
+                net=self.model.net,
+                guidance=float(generate_kwargs.get("guidance", self.cfg.guidance)),
+                num_steps=int(generate_kwargs.get("num_steps", self.cfg.num_steps)),
+                output_dir=(
+                    self._version1_output_dir / f"request_{request_index:06d}"
+                    if self._version1_output_dir is not None
+                    else None
+                ),
+                **execution_kwargs,
+            )
+            with controller:
+                samples = original_generate(*generate_args, **generate_kwargs)
+            summary = controller.finish()
+            self._request_count += 1
+            log.info(
+                f"[robolab-version1] request={request_index} strategy={summary['strategy_version']} "
+                f"execution={args.asi_execution}"
+            )
+            return samples
+
+        self.model.generate_samples_from_batch = version1_generate
+
+
+def serve(args: Version1ServerArgs) -> None:
+    log.info(
+        f"[robolab-version1] host={socket.gethostname()} bind={args.host}:{int(args.port)} "
+        f"strategy={STRATEGY_VERSION} budget=K{TOKEN_BUDGET}"
+    )
+    service = Version1PolicyService(args)
+    local_ip = get_local_ip()
+    log.info(f"[robolab-version1] accessible at ws://{local_ip}:{int(args.port)}/")
+    server_cls = _load_openpi_websocket_policy_server()
+    server_cls(policy=service, host=args.host, port=int(args.port), metadata={}).serve_forever()
+
+
+def main() -> None:
+    from cosmos_framework.inference.common.args import tyro_cli
+
+    args = tyro_cli(Version1ServerArgs, description=__doc__)
+    serve(args)
+
+
+if __name__ == "__main__":
+    main()

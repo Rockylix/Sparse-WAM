@@ -1,0 +1,31 @@
+{
+  "backbone": "edge",
+  "execution": "eager",
+  "layers": 28,
+  "hidden_size": 2048,
+  "future_frames": 8,
+  "action_horizon": 32,
+  "spatial_tokens": 340,
+  "core_tokens": 80,
+  "stable_tokens": 104,
+  "retained_tokens": 184,
+  "informative_layers": 6,
+  "action_weights": [
+    0.16666666666666666,
+    0.3333333333333333,
+    0.3333333333333333,
+    0.16666666666666666
+  ],
+  "cv_penalty": 1.0,
+  "num_steps": 4,
+  "guidance": 3.0,
+  "shift": 5.0,
+  "profile": "step0_conditional",
+  "dense_forwards": 1,
+  "sparse_forwards": 7,
+  "scorer": "main_attention_lse",
+  "background_update": "step0_velocity_cache",
+  "step0_background_cfg": "unconditional_equals_conditional",
+  "mask_scope": "one_action_chunk",
+  "checkpoint": "nvidia/Cosmos3-Edge-Policy-DROID"
+}
