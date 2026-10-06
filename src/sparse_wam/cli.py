@@ -12,9 +12,11 @@ def main(argv=None):
     show = commands.add_parser("config", help="Print the effective paper configuration")
     show.add_argument("--backbone", choices=("edge", "nano"), required=True)
     show.add_argument("--execution", choices=("eager", "compile", "compile-graph"), default="eager")
+    show.add_argument("--no-nano-packing-cache", action="store_true")
     server = commands.add_parser("serve", help="Start the RoboLab/openpi policy server")
     server.add_argument("--backbone", choices=("edge", "nano"), required=True)
     server.add_argument("--execution", choices=("eager", "compile", "compile-graph"), default="eager")
+    server.add_argument("--no-nano-packing-cache", action="store_true")
     server.add_argument("--mode", choices=("dense", "sparse"), default="sparse")
     server.add_argument("--checkpoint-path", dest="checkpoint")
     server.add_argument("--host", default="127.0.0.1")
@@ -24,7 +26,11 @@ def main(argv=None):
     server.add_argument("--native-config", help="JSON overrides for native checkpoint/domain/assets settings")
     options = vars(parser.parse_args(argv))
     command = options.pop("command")
-    config = PaperConfig(options.pop("backbone"), options.pop("execution"))
+    config = PaperConfig(
+        options.pop("backbone"),
+        options.pop("execution"),
+        nano_packing_cache=not options.pop("no_nano_packing_cache"),
+    )
     if command == "config":
         print(json.dumps(config.to_dict(), ensure_ascii=False, indent=2))
     else:

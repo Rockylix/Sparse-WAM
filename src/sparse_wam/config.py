@@ -8,6 +8,7 @@ from typing import Literal
 class PaperConfig:
     backbone: Literal["edge", "nano"]
     execution: Literal["eager", "compile", "compile-graph"] = "eager"
+    nano_packing_cache: bool = True
 
     def __post_init__(self):
         if self.backbone not in ("edge", "nano"):
@@ -37,6 +38,7 @@ class PaperConfig:
     def to_dict(self):
         return {
             **asdict(self),
+            "nano_packing_cache": self.backbone == "nano" and self.nano_packing_cache,
             "layers": self.layers,
             "hidden_size": self.hidden_size,
             "future_frames": 8,
@@ -83,6 +85,7 @@ class PaperConfig:
                 background_update="current_cfg_velocity",
                 step0_background_cfg="native",
                 mask_scope=None,
+                nano_packing_cache=False,
                 execution="eager" if self.backbone == "nano" else self.execution,
             )
         return result

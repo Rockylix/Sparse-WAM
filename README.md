@@ -102,6 +102,10 @@ Edge 保留 340 个空间 token 的布局检查；Nano 从真实 packed layout �
 
 Nano 自动启用原生 Reasoner offload / instruction KV cache；禁止与逐层全模型 offload 混用。
 指令 KV 可由原生框架跨 chunk 缓存，Sparse-WAM 的 mask/背景 velocity 不跨 chunk。
+Nano Sparse 默认复用同 chunk 的原始序列打包 metadata；两支 CFG 按文本/布局独立缓存。
+只在原生 `_get_velocity` 内复用，noisy tokens 仍由原生调用方每次更新，timestep 原地刷新。
+输入准备不使用该缓存，多样本/逐帧 timestep/sound/多视觉 item 等情况回退原路径。
+可用 `--no-nano-packing-cache` 关闭作消融；Dense 不启用该优化，Edge 保留原生缓存路径。
 保留原生服务的图像处理、state/action 归一化、历史行裁剪、gripper 翻转及推进 seed 的语义。
 
 `--execution compile` / `compile-graph` 是可选执行后端。Graph 是编译器管理的 layer 路径，
@@ -123,6 +127,9 @@ PYTHONPATH=src vendor/edge/.venv/bin/python tools/benchmark_policy.py \
 比较 Dense eager 与 Sparse compile + Graph 时，使用 `--execution compile-graph --dense-eager`。
 该选项让 Edge 的 Dense 调用原生未编译 layer/head，Sparse 调用原生编译包装器；不替换模型算法。
 结果中的 `cuda_graph_replays_by_round` 记录真实 replay 调用次数，而非仅记录配置开关。
+`tools/benchmark_nano_packing.py` 在同模型中交替 Dense eager、Sparse packing off/on，
+同时报告 generation/infer 时间并检查 action、vision、mask、选中层和 quality 的逐位一致性。
+它使用两组 observation/seed 变体做有限回归，不代表所有输入上的数值等价或闭环成功率。
 **计时包含 `policy.infer` 的预处理、推理和动作后处理**，不同于来源文档的 generation-only 时间。
 Nano Dense 保持原生 eager，即使 sparse adapter 开启 compile；必须按输出记录区分算法收益与编译收益。
 实际 RoboLab success rate 需要另行运行完整闭环协议，不能由这个离线脚本或 action MSE 推断。

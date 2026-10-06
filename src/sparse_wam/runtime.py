@@ -9,6 +9,7 @@ import sys
 import torch
 
 from .controller import SparseWAMController
+from .nano_packing import reuse_nano_packing
 from .velocity import VelocityCacheSampler
 
 
@@ -80,12 +81,18 @@ class PaperRunner:
         else:
             controller = SparseWAMController(self.model.net, self.config)
             sampler = VelocityCacheSampler(self.model.sampler, controller)
-            with controller:
+            with (
+                reuse_nano_packing(
+                    self.model, self.config.backbone == "nano" and self.config.nano_packing_cache
+                ) as packing_stats,
+                controller,
+            ):
                 result = self.generate(batch, **{**arguments, "sampler": sampler})
             summary = {
                 **controller.finish(),
                 **self.config.run_metadata("sparse", spatial_tokens=controller.geometry[2]),
                 "velocity_updates": sampler.steps,
+                "input_packing": dict(packing_stats),
             }
         for name in ("action", "vision"):
             values = result.get(name)

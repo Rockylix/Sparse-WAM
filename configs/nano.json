@@ -6,6 +6,7 @@
   "future_frames": 8,
   "action_horizon": 32,
   "spatial_tokens": null,
+  "nano_packing_cache": true,
   "core_tokens": 80,
   "stable_tokens": 104,
   "retained_tokens": 184,

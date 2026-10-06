@@ -211,7 +211,9 @@ def test_layout_changes_fail_before_sparse_layer_execution():
 def test_paper_runner_refreshes_background_across_successive_chunks(monkeypatch, tier):
     import sparse_wam.runtime as runtime
 
-    config = PaperConfig(tier)
+    # This solver double does not implement native _get_velocity/packing;
+    # that ABI is covered separately by test_nano_packing and GPU regression.
+    config = PaperConfig(tier, nano_packing_cache=False)
     net = FakeNativeNet(config)
     controllers = []
 

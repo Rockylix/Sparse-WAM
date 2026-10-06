@@ -16,6 +16,10 @@
     Core80+Stable104 的预算与选择公式不变，仍检查每个 chunk 内的布局一致性。
 12. 配对 benchmark 增加 `--dense-eager`，隔离 Edge Dense 未编译路径与 Sparse 编译路径，
     并记录真实 CUDA Graph replay 次数。该切换仅用于 benchmark，不改变默认服务路径。
+13. Nano Sparse 增加请求内原始 packing 复用，默认开启，可用 `--no-nano-packing-cache` 关闭。
+    范围限制为原生 `_get_velocity` 的单样本标量 timestep 路径；按文本/CFG/几何分开缓存。
+    每步仍更新 noisy tokens 和 timestep，不复用 attention 输出，不跨 chunk 缓存。
+    Dense 不启用、Edge 不改变；代码位于共享层，不修改 vendor 快照。
 
 `tools/check_sources.py` 用来源 SHA256 与已登记修改后的 SHA256 检查所有复制文件。
 新核心代码的派生来源也在 manifest 中记录。原提交历史、远端、模型权重与实验原始数据未复制。

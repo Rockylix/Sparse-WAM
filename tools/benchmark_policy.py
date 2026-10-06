@@ -27,6 +27,7 @@ def main():
     p.add_argument("--native-config")
     p.add_argument("--execution", choices=("eager", "compile", "compile-graph"), default="eager")
     p.add_argument("--dense-eager", action="store_true", help="Keep Dense eager even when Sparse is compiled")
+    p.add_argument("--no-nano-packing-cache", action="store_true")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--warmup", type=int, default=5)
     p.add_argument("--repeats", type=int, default=30)
@@ -38,7 +39,7 @@ def main():
         observation = {
             key: source[key].item() if source[key].ndim == 0 else source[key].copy() for key in source.files
         }
-    config = PaperConfig(args.backbone, args.execution)
+    config = PaperConfig(args.backbone, args.execution, nano_packing_cache=not args.no_nano_packing_cache)
     service, _ = create_service(
         config,
         checkpoint=args.checkpoint_path,
