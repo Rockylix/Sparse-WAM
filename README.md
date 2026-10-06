@@ -151,17 +151,25 @@ Nano packing reuse can be disabled with `--no-nano-packing-cache`.
 
 ### Recorded single-chunk latency
 
-Synchronized, warm **generation-only** latency on RTX 4090:
+Synchronized, warm single-chunk latency on RTX 4090:
 
-| Model / input | Dense eager median | Sparse compile + Graph median | Speedup |
+| Model / input | Before optimization | After optimization | Speedup |
 |---|---:|---:|---:|
 | Edge DROID / Banana observation, 340 tokens per frame | 0.8521 s | 0.4615 s | 1.846× |
 | Nano Piper20k / HDF5, 360 tokens per frame | 3.3409 s | 1.8388 s | 1.817× |
+| FastWAM-Joint / LIBERO, K56 (Core19 + Stable37) | 0.4273 s | 0.2151 s | 1.986× |
 
+Before optimization: **Dense eager**. After optimization: **sparse + Torch Compile + CUDA Graph**.
+Values are medians of warm measurements, not cold-start times.
 Edge uses 5 measured pairs; Nano uses 20; both follow 3 warmup pairs.
 These measure **sparsity plus compilation**, not the isolated effect of pruning.
-They exclude cold compilation/prefill, external input preprocessing, RPC and
-future-video decoding. They do not establish closed-loop task success.
+Cosmos rows time generation only; the FastWAM-Joint row times its native
+action-only inference call with the K56 preset (not the K31 default).
+The latter is an existing [FastWAM-Joint benchmark record](https://github.com/Rockylix/Fastwam-joint/blob/88fed98/docs/fastwam_joint_sparse_cn.md),
+not a new measurement through this repository's CLI. Backend timing scopes differ;
+each speedup compares that backend against its own dense control.
+Cold compilation/prefill, external input preprocessing, RPC and future-video
+decoding are excluded. These timings do not establish closed-loop task success.
 See [validation details](docs/validation.md) for configurations and output checks.
 
 ### Paired observation benchmark
