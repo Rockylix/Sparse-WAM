@@ -50,14 +50,15 @@ class RecordingBackend:
         self.calls.append((profile, len(x), hidden["_num_causal_tokens"]))
         output = x.clone()
         output[:, 0] += 1
-        scores = torch.arange(self.config.spatial_tokens).float().repeat(8, 1) / 1000 if profile else None
+        scores = torch.arange(geometry[2]).float().repeat(8, 1) / 1000 if profile else None
         return {**hidden, "full_only_seq": output}, {}, None, scores
 
 
 class FakeNativeNet(torch.nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, spatial=None):
         super().__init__()
         self.config = config
+        self.spatial = spatial if spatial is not None else (config.spatial_tokens or 360)
         self.latent_patch_size = (1, 1, 1)
         self.language_model = SimpleNamespace(
             model=SimpleNamespace(
@@ -69,7 +70,7 @@ class FakeNativeNet(torch.nn.Module):
         )
 
     def layout(self, und=3):
-        spatial = self.config.spatial_tokens
+        spatial = self.spatial
         return SimpleNamespace(
             attn_modes=["causal", "full"],
             split_lens=[und, 9 * spatial + 33],
@@ -108,17 +109,17 @@ class FakeNativeNet(torch.nn.Module):
             )
         hidden = c.end_stack(hidden)
         x = hidden["full_only_seq"][:, 0]
-        spatial = self.config.spatial_tokens
+        spatial = self.spatial
         return {
             "preds_vision": [x[: 9 * spatial].reshape(1, 9, 1, spatial)],
             "preds_action": [x[9 * spatial :]],
         }
 
 
-@pytest.mark.parametrize("tier", ["edge", "nano"])
-def test_only_conditional_step0_dense_and_velocity_cache_is_request_local(tier):
+@pytest.mark.parametrize("tier,spatial", [("edge", 340), ("nano", 340), ("nano", 360), ("nano", 400)])
+def test_only_conditional_step0_dense_and_velocity_cache_is_request_local(tier, spatial):
     config = PaperConfig(tier)
-    net = FakeNativeNet(config)
+    net = FakeNativeNet(config, spatial)
     backend = RecordingBackend(config)
     c = SparseWAMController(net, config, backend=backend, packing=TestPacking())
     outputs = []
@@ -147,13 +148,15 @@ def test_only_conditional_step0_dense_and_velocity_cache_is_request_local(tier):
     summary = c.finish()
     assert summary["pack_count"] == summary["restore_count"] == 7
     assert sum(profile for profile, _, _ in backend.calls) == config.layers
-    dense_len = 9 * config.spatial_tokens + 33
-    sparse_len = config.spatial_tokens + 8 * 184 + 33
+    assert summary["spatial_tokens"] == spatial
+    dense_len = 9 * spatial + 33
+    sparse_len = spatial + 8 * 184 + 33
+    assert summary["dense_gen_tokens"] == dense_len
+    assert summary["sparse_gen_tokens"] == sparse_len
     assert [length for _, length, _ in backend.calls[: config.layers]] == [dense_len] * config.layers
     assert all(length == sparse_len for _, length, _ in backend.calls[config.layers :])
     assert {und for _, _, und in backend.calls} == {2, 7}
     mask = c.plan.keep
-    spatial = config.spatial_tokens
     for step, flat in enumerate(outputs):
         future = flat[: 9 * spatial].reshape(9, spatial)[1:]
         assert (future[~mask] == config.layers).all()  # full conditional background, frozen
@@ -164,6 +167,15 @@ def test_only_conditional_step0_dense_and_velocity_cache_is_request_local(tier):
     with pytest.raises(RuntimeError, match="reused"):
         with c:
             pass
+
+
+def test_nano_rejects_grid_smaller_than_selection_budget():
+    config = PaperConfig("nano")
+    net = FakeNativeNet(config, spatial=183)
+    c = SparseWAMController(net, config, backend=RecordingBackend(config), packing=TestPacking())
+    with pytest.raises(ValueError, match="Core80"):
+        with c:
+            net(net.layout())
 
 
 def test_failure_cleans_hooks_and_allows_a_fresh_request():
@@ -239,9 +251,9 @@ def test_paper_runner_refreshes_background_across_successive_chunks(monkeypatch,
             return [u + guidance * (c - u)]
 
         result = sampler(velocity, [torch.empty(0)], num_steps=num_steps, shift=shift)[0]
-        count = 9 * config.spatial_tokens
+        count = 9 * net.spatial
         return {
-            "vision": [result[:count].reshape(1, 9, 1, config.spatial_tokens)],
+            "vision": [result[:count].reshape(1, 9, 1, net.spatial)],
             "action": [result[count:]],
         }
 

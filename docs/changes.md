@@ -12,6 +12,10 @@
 8. 参数集中在 `PaperConfig`；`configs/*.json` 是导出记录，不是另一套可漂移的默认值。
 9. compiler/Graph 是显式执行选项，默认 eager；不声称编译保持逐位输出或成功率。
 10. 保留原生 framework runtime 快照，而不进行未经 GPU 回归的版本覆盖或依赖激进删除。
+11. 4090 冒烟修复：Nano 空间 token 数从当前 packed layout 读取，不再固定为 360；
+    Core80+Stable104 的预算与选择公式不变，仍检查每个 chunk 内的布局一致性。
+12. 配对 benchmark 增加 `--dense-eager`，隔离 Edge Dense 未编译路径与 Sparse 编译路径，
+    并记录真实 CUDA Graph replay 次数。该切换仅用于 benchmark，不改变默认服务路径。
 
 `tools/check_sources.py` 用来源 SHA256 与已登记修改后的 SHA256 检查所有复制文件。
 新核心代码的派生来源也在 manifest 中记录。原提交历史、远端、模型权重与实验原始数据未复制。

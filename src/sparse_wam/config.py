@@ -25,7 +25,9 @@ class PaperConfig:
 
     @property
     def spatial_tokens(self):
-        return 340 if self.backbone == "edge" else 360
+        # Nano's grid depends on the checkpoint/preprocessing, not its width.
+        # Resolve it from the real packed layout once a request is available.
+        return 340 if self.backbone == "edge" else None
 
     @property
     def checkpoint(self):
@@ -59,11 +61,13 @@ class PaperConfig:
             "checkpoint": self.checkpoint,
         }
 
-    def run_metadata(self, mode):
+    def run_metadata(self, mode, *, spatial_tokens=None):
         """Describe the selected execution, including the native dense control."""
         if mode not in ("dense", "sparse"):
             raise ValueError("mode must be dense or sparse")
         result = {**self.to_dict(), "mode": mode, "sparse_enabled": mode == "sparse"}
+        if spatial_tokens is not None:
+            result["spatial_tokens"] = int(spatial_tokens)
         if mode == "dense":
             result.update(
                 dense_forwards=8,
@@ -72,7 +76,7 @@ class PaperConfig:
                 scorer=None,
                 core_tokens=None,
                 stable_tokens=None,
-                retained_tokens=self.spatial_tokens,
+                retained_tokens=result["spatial_tokens"],
                 informative_layers=None,
                 action_weights=None,
                 cv_penalty=None,

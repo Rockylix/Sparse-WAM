@@ -6,10 +6,10 @@
 |---|---|---|
 | 生成层数 / hidden width | 28 / 2048 | 36 / 4096 |
 | MLP | 两层 Linear，ReLU²；intermediate 9216 | 三矩阵 SwiGLU；intermediate 12288 |
-| 每帧空间 token | 340，17×20 | 360，20×18 |
-| 完整 GEN 长度 | 3093 | 3273 |
-| 稀疏 GEN 长度 | 1845 | 1865 |
-| 未来视觉 token 保留率 | 184/340 ≈ 54.12% | 184/360 ≈ 51.11% |
+| 每帧空间 token | 340，17×20 | 从输入布局读取；本次官方 DROID 为 340，17×20 |
+| 完整 GEN 长度 | 3093 | `9P+33`；本次 3093 |
+| 稀疏 GEN 长度 | 1845 | `P+8×184+33`；本次 1845 |
+| 未来视觉 token 保留率 | 184/340 ≈ 54.12% | `184/P`；本次约 54.12% |
 | 主 attention LSE | 使用来源 B6 decoder 已有的返回接口 | GEN adapter 的主 attention 一次调用同时返回输出与 LSE |
 | Transformer 执行 | 调用原生 Edge decoder | 提取来源 ASI 的 GEN QKV、RoPE、attention、MLP 路径 |
 | 模型驻留 | 原生 Edge 服务路径 | Reasoner prefill/offload，GEN 常驻，原生指令 KV cache |
@@ -19,7 +19,8 @@
 完整 GEN 长度为 `9×spatial+33`；稀疏长度为 `spatial+8×184+33`。
 33 个 action 位置包含一个历史/条件位置及 32 个预测位置。L0 全量保留，文本 UND 不计入上述 GEN 长度。
 
-同一个 K184 对 Nano 的未来视觉剪枝比例更高，但不能直接据此推导速度收益。
+Nano 的 P 由实际 checkpoint/预处理后的空间网格决定，不能固定为历史输入的 360。
+同一个 K184 的剪枝比例取决于 P，不能仅凭骨干名称推导剪枝比例或速度收益。
 Nano 的矩阵规模、MLP、权重驻留与指令 cache 行为都会影响延迟；Edge 的评分和 Python 调度固定开销占比可能更大。
 这是依据执行结构的判断，尚无本次 GPU profiler 测量支持具体比例。
 
@@ -45,4 +46,4 @@ Nano 的矩阵规模、MLP、权重驻留与指令 cache 行为都会影响延�
 5. 再验证 compile / compile-graph 的数值与性能；单独标明 Nano Dense eager / Sparse compiled 的对照。
 6. 使用论文完整 RoboLab 协议重新测量闭环成功率。离线 action MSE 不替代任务成功率。
 
-上述 GPU 步骤当前均未完成，参见 [本地验证记录](validation.md)。
+上面是完整验收清单；单输入冒烟不代表全部验收完成。见 [本地验证记录](validation.md)。

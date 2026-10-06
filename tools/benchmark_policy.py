@@ -15,6 +15,7 @@ import numpy as np
 import torch
 
 from sparse_wam.config import PaperConfig
+from sparse_wam.benchmark_execution import PairedExecution, ReplayCounter
 from sparse_wam.service import create_service
 
 
@@ -25,6 +26,7 @@ def main():
     p.add_argument("--observation", type=Path, required=True)
     p.add_argument("--native-config")
     p.add_argument("--execution", choices=("eager", "compile", "compile-graph"), default="eager")
+    p.add_argument("--dense-eager", action="store_true", help="Keep Dense eager even when Sparse is compiled")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--warmup", type=int, default=5)
     p.add_argument("--repeats", type=int, default=30)
@@ -45,13 +47,15 @@ def main():
         mode="dense",
     )
     runner = service.sparse_wam_runner
+    execution = PairedExecution(service, config, dense_eager=args.dense_eager)
     timings = {"dense": [], "sparse": []}
+    replays = {"dense": [], "sparse": []}
     action_error = []
     summaries = {}
     for round_id in range(args.warmup + args.repeats):
         outputs = {}
         for mode in ("dense", "sparse") if round_id % 2 == 0 else ("sparse", "dense"):
-            runner.mode = mode
+            execution.select(mode)
             # Same observation and initial generation seed for each pair.
             service._rng = np.random.default_rng(args.seed + round_id)
             torch.manual_seed(args.seed + round_id)
@@ -59,17 +63,25 @@ def main():
             sample = copy.deepcopy(observation)
             torch.cuda.synchronize()
             start = time.perf_counter()
-            outputs[mode] = service.infer(sample)
+            with ReplayCounter() as counter:
+                outputs[mode] = service.infer(sample)
             torch.cuda.synchronize()
             elapsed = time.perf_counter() - start
             if round_id >= args.warmup:
                 timings[mode].append(elapsed)
+                replays[mode].append(counter.count)
             summaries[mode] = runner.last_summary
+            print(
+                f"round={round_id} warmup={round_id < args.warmup} mode={mode} "
+                f"elapsed={elapsed:.6f}s graph_replays={counter.count}",
+                flush=True,
+            )
         if round_id >= args.warmup:
             delta = outputs["sparse"]["action"] - outputs["dense"]["action"]
             action_error.append(float(np.mean(delta**2)))
     stats = {
         mode: {
+            "mean_s": float(np.mean(values)),
             "median_s": float(np.median(values)),
             "p90_s": float(np.percentile(values, 90)),
             "samples_s": values,
@@ -83,6 +95,12 @@ def main():
         "seed": args.seed,
         "warmup_rounds": args.warmup,
         "measured_rounds": args.repeats,
+        "dense_eager_requested": args.dense_eager,
+        "cuda_graph_replays_by_round": replays,
+        "torch_version": torch.__version__,
+        "gpu": torch.cuda.get_device_name(),
+        "peak_allocated_gib": torch.cuda.max_memory_allocated() / 1024**3,
+        "peak_reserved_gib": torch.cuda.max_memory_reserved() / 1024**3,
         "timing_scope": "policy.infer: preprocessing + generation + action postprocessing",
         "stats": stats,
         "speedup": stats["dense"]["median_s"] / stats["sparse"]["median_s"],

@@ -99,8 +99,10 @@ class SparseWAMController:
         if self.layout is None:
             self.layout = layout
             self.geometry = profile_geometry(layout)
-            if self.geometry[2] != self.config.spatial_tokens:
+            if self.config.spatial_tokens is not None and self.geometry[2] != self.config.spatial_tokens:
                 raise ValueError("Policy layout differs from the paper's backbone configuration")
+            if self.geometry[2] < 184:
+                raise ValueError("The spatial grid cannot fit Core80 + Stable104")
         elif layout != self.layout:
             raise ValueError("GEN/action layout changed within one action chunk")
         self.current = (
@@ -218,6 +220,10 @@ class SparseWAMController:
             raise RuntimeError(f"Incomplete Sparse-WAM execution: {actual}, expected {expected}")
         return {
             **self.config.to_dict(),
+            "spatial_tokens": self.geometry[2],
+            "token_grid": list(self.layout["latent_shape_thw"][1:]),
+            "dense_gen_tokens": self.layout["num_gen_tokens"],
+            "sparse_gen_tokens": self.selected.numel(),
             "completed_forwards": self.completed,
             "block_calls": self.block_calls,
             "pack_count": self.pack_count,

@@ -1,6 +1,7 @@
 """Select a pinned Cosmos ABI and attach the paper controller to its native sampler."""
 
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -83,7 +84,7 @@ class PaperRunner:
                 result = self.generate(batch, **{**arguments, "sampler": sampler})
             summary = {
                 **controller.finish(),
-                **self.config.run_metadata("sparse"),
+                **self.config.run_metadata("sparse", spatial_tokens=controller.geometry[2]),
                 "velocity_updates": sampler.steps,
             }
         for name in ("action", "vision"):
@@ -96,5 +97,14 @@ class PaperRunner:
                 or not torch.isfinite(values[0]).all()
             ):
                 raise RuntimeError(f"Missing or nonfinite {name} output")
+        if self.mode == "dense":
+            patch = getattr(getattr(self.model, "net", None), "latent_patch_size", None)
+            if patch is not None:
+                ph, pw = (patch, patch) if isinstance(patch, int) else patch[-2:]
+                height, width = result["vision"][0].shape[-2:]
+                grid = [math.ceil(height / ph), math.ceil(width / pw)]
+                summary.update(
+                    spatial_tokens=math.prod(grid), retained_tokens=math.prod(grid), token_grid=grid
+                )
         self.last_summary = summary
         return result

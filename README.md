@@ -96,13 +96,15 @@ PYTHONPATH=src vendor/nano/.venv/bin/python -m sparse_wam serve \
 `--mode dense` 是原生全量对照；两种模式均执行相同的任务文本序列化。
 原生 checkpoint/domain/VAE 配置可通过 `--native-config /path/to/native.json` 传入。
 该 JSON 使用对应版本 `RobolabServerArgs` 的字段，不覆盖固定论文参数。
-实际 token 布局必须符合论文：Edge 340、Nano 360 个空间 token；若权重/预处理不匹配会报错，不能仅改数字绕过。
+Edge 保留 340 个空间 token 的布局检查；Nano 从真实 packed layout 读取空间尺寸，
+不把某次输入的 360 tokens 写死为模型属性。官方 DROID 默认输入为 17×20=340；
+其他预处理可产生不同网格。K184、L0/action 保留、原始位置编码及同 chunk 布局一致性检查不变。
 
 Nano 自动启用原生 Reasoner offload / instruction KV cache；禁止与逐层全模型 offload 混用。
 指令 KV 可由原生框架跨 chunk 缓存，Sparse-WAM 的 mask/背景 velocity 不跨 chunk。
 保留原生服务的图像处理、state/action 归一化、历史行裁剪、gripper 翻转及推进 seed 的语义。
 
-`--execution compile` / `compile-graph` 是待 GPU 验证的执行选项。Graph 是编译器管理的 layer 路径，
+`--execution compile` / `compile-graph` 是可选执行后端。Graph 是编译器管理的 layer 路径，
 不是整个四步采样被一个 CUDA Graph 包裹。编译可能改变浮点归约、Top-K 边界及动作输出。
 
 ## 配对 benchmark
@@ -118,6 +120,9 @@ PYTHONPATH=src vendor/edge/.venv/bin/python tools/benchmark_policy.py \
 ```
 
 脚本在同模型、同 observation、成对 seed 下交替 Dense/Sparse，并报告 median/P90、原始样本和 action MSE。
+比较 Dense eager 与 Sparse compile + Graph 时，使用 `--execution compile-graph --dense-eager`。
+该选项让 Edge 的 Dense 调用原生未编译 layer/head，Sparse 调用原生编译包装器；不替换模型算法。
+结果中的 `cuda_graph_replays_by_round` 记录真实 replay 调用次数，而非仅记录配置开关。
 **计时包含 `policy.infer` 的预处理、推理和动作后处理**，不同于来源文档的 generation-only 时间。
 Nano Dense 保持原生 eager，即使 sparse adapter 开启 compile；必须按输出记录区分算法收益与编译收益。
 实际 RoboLab success rate 需要另行运行完整闭环协议，不能由这个离线脚本或 action MSE 推断。
