@@ -100,7 +100,7 @@ class SparseWAMController:
             self.layout = layout
             self.geometry = profile_geometry(layout)
             if self.config.spatial_tokens is not None and self.geometry[2] != self.config.spatial_tokens:
-                raise ValueError("Policy layout differs from the paper's backbone configuration")
+                raise ValueError("Policy layout differs from the Sparse-WAM backbone configuration")
             if self.geometry[2] < 184:
                 raise ValueError("The spatial grid cannot fit Core80 + Stable104")
         elif layout != self.layout:
@@ -184,7 +184,7 @@ class SparseWAMController:
                 raise RuntimeError("Full GEN restoration must precede output heads")
             predictions = output.get("preds_vision")
             if not predictions or len(predictions) != 1:
-                raise ValueError("Paper adapter requires one vision/action sample")
+                raise ValueError("Sparse-WAM requires one vision/action sample")
             prediction = predictions[0]
             shape = tuple(prediction.shape)
             if self.vision_shape is None:

@@ -1,4 +1,4 @@
-"""Select a pinned Cosmos ABI and attach the paper controller to its native sampler."""
+"""Select a Cosmos backend and attach Sparse-WAM to its native sampler."""
 
 import json
 import math
@@ -53,7 +53,7 @@ def normalize_caption(batch, key):
     return {**batch, key: [caption]}
 
 
-class PaperRunner:
+class SparseWAMRunner:
     def __init__(self, model, config, *, mode="sparse", generate=None):
         if mode not in ("dense", "sparse"):
             raise ValueError("mode must be dense or sparse")

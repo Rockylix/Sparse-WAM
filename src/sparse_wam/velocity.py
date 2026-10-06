@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: OpenMDW-1.1
 # CFG bootstrap and native-sampler wrapping adapted from the pinned Nano k112_sparse helpers.
-"""Paper equation (7), applied AFTER CFG and BEFORE the native UniPC update."""
+"""Sparse-WAM velocity caching, applied AFTER CFG and BEFORE the native UniPC update."""
 
 import math
 
@@ -46,7 +46,7 @@ class VelocityCacheSampler:
         if self.steps or self.cached is not None:
             raise RuntimeError("Velocity cache must not cross action chunks")
         if kwargs.get("num_steps", 4) != 4:
-            raise ValueError("Paper mode requires four denoising steps")
+            raise ValueError("Sparse-WAM requires four denoising steps")
 
         def cached_velocity(noise, timestep):
             current = velocity_fn(noise, timestep)  # native conditional -> unconditional -> CFG

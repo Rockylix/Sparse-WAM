@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: OpenMDW-1.1
 # Derived from the pinned Edge C80/S104 and Nano ASI selectors; see SOURCE_MANIFEST.json.
-"""Action-guided token selection, paper equations (2)-(6)."""
+"""Sparse-WAM action-guided Core and Stable token selection."""
 
 from dataclasses import dataclass
 import math

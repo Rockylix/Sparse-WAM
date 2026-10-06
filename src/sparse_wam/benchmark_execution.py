@@ -1,6 +1,6 @@
 """Benchmark-only dispatch: retain native eager Dense while testing compiled Sparse."""
 
-from .config import PaperConfig
+from .config import SparseWAMConfig
 
 
 class PairedExecution:
@@ -29,7 +29,7 @@ class PairedExecution:
         runner = self.service.sparse_wam_runner
         runner.mode = mode
         eager = mode == "dense" and (self.dense_eager or self.config.backbone == "nano")
-        runner.config = PaperConfig(self.config.backbone, "eager") if eager else self.config
+        runner.config = SparseWAMConfig(self.config.backbone, "eager") if eager else self.config
         if self.variants is not None:
             net = self.service.model.net
             layers, heads = self.variants[mode]

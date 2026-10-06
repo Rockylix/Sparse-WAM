@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from .runtime import PaperRunner, activate_runtime
+from .runtime import SparseWAMRunner, activate_runtime
 
 
 def create_service(
@@ -43,7 +43,7 @@ def create_service(
         "rope_qk_capture_dir",
     ):
         if getattr(args, field, None) is not None:
-            raise ValueError(f"{field} cannot be combined with the paper service")
+            raise ValueError(f"{field} cannot be combined with the Sparse-WAM service")
 
     class PolicyService(RobolabPolicyService):
         def _build_setup_args(self, settings):
@@ -74,7 +74,7 @@ def create_service(
             else "accumulated_cache_size_limit"
         )
         setattr(torch._dynamo.config, key, 4096)
-    service.sparse_wam_runner = PaperRunner(service.model, config, mode=mode)
+    service.sparse_wam_runner = SparseWAMRunner(service.model, config, mode=mode)
     service.model.generate_samples_from_batch = service.sparse_wam_runner
     return service, args
 

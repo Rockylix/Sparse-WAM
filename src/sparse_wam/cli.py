@@ -3,13 +3,13 @@
 import argparse
 import json
 
-from .config import PaperConfig
+from .config import SparseWAMConfig
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Sparse-WAM for Cosmos3 Edge/Nano")
     commands = parser.add_subparsers(dest="command", required=True)
-    show = commands.add_parser("config", help="Print the effective paper configuration")
+    show = commands.add_parser("config", help="Print the effective Sparse-WAM configuration")
     show.add_argument("--backbone", choices=("edge", "nano"), required=True)
     show.add_argument("--execution", choices=("eager", "compile", "compile-graph"), default="eager")
     show.add_argument("--no-nano-packing-cache", action="store_true")
@@ -26,7 +26,7 @@ def main(argv=None):
     server.add_argument("--native-config", help="JSON overrides for native checkpoint/domain/assets settings")
     options = vars(parser.parse_args(argv))
     command = options.pop("command")
-    config = PaperConfig(
+    config = SparseWAMConfig(
         options.pop("backbone"),
         options.pop("execution"),
         nano_packing_cache=not options.pop("no_nano_packing_cache"),

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 import torch
 
-from sparse_wam.config import PaperConfig
+from sparse_wam.config import SparseWAMConfig
 from sparse_wam.controller import SparseWAMController
 from sparse_wam.velocity import VelocityCacheSampler
 
@@ -118,7 +118,7 @@ class FakeNativeNet(torch.nn.Module):
 
 @pytest.mark.parametrize("tier,spatial", [("edge", 340), ("nano", 340), ("nano", 360), ("nano", 400)])
 def test_only_conditional_step0_dense_and_velocity_cache_is_request_local(tier, spatial):
-    config = PaperConfig(tier)
+    config = SparseWAMConfig(tier)
     net = FakeNativeNet(config, spatial)
     backend = RecordingBackend(config)
     c = SparseWAMController(net, config, backend=backend, packing=TestPacking())
@@ -170,7 +170,7 @@ def test_only_conditional_step0_dense_and_velocity_cache_is_request_local(tier, 
 
 
 def test_nano_rejects_grid_smaller_than_selection_budget():
-    config = PaperConfig("nano")
+    config = SparseWAMConfig("nano")
     net = FakeNativeNet(config, spatial=183)
     c = SparseWAMController(net, config, backend=RecordingBackend(config), packing=TestPacking())
     with pytest.raises(ValueError, match="Core80"):
@@ -179,7 +179,7 @@ def test_nano_rejects_grid_smaller_than_selection_budget():
 
 
 def test_failure_cleans_hooks_and_allows_a_fresh_request():
-    config = PaperConfig("edge")
+    config = SparseWAMConfig("edge")
     net = FakeNativeNet(config)
     backend = RecordingBackend(config, fail_at=3)
     c = SparseWAMController(net, config, backend=backend, packing=TestPacking())
@@ -196,7 +196,7 @@ def test_failure_cleans_hooks_and_allows_a_fresh_request():
 
 
 def test_layout_changes_fail_before_sparse_layer_execution():
-    config = PaperConfig("edge")
+    config = SparseWAMConfig("edge")
     net = FakeNativeNet(config)
     c = SparseWAMController(net, config, backend=RecordingBackend(config), packing=TestPacking())
     with c:
@@ -208,12 +208,12 @@ def test_layout_changes_fail_before_sparse_layer_execution():
 
 
 @pytest.mark.parametrize("tier", ["edge", "nano"])
-def test_paper_runner_refreshes_background_across_successive_chunks(monkeypatch, tier):
+def test_sparse_wam_runner_refreshes_background_across_successive_chunks(monkeypatch, tier):
     import sparse_wam.runtime as runtime
 
     # This solver double does not implement native _get_velocity/packing;
     # that ABI is covered separately by test_nano_packing and GPU regression.
-    config = PaperConfig(tier, nano_packing_cache=False)
+    config = SparseWAMConfig(tier, nano_packing_cache=False)
     net = FakeNativeNet(config)
     controllers = []
 
@@ -266,7 +266,7 @@ def test_paper_runner_refreshes_background_across_successive_chunks(monkeypatch,
         config=SimpleNamespace(rectified_flow_inference_config=SimpleNamespace(scheduler_type="unipc")),
         generate_samples_from_batch=generate,
     )
-    runner = runtime.PaperRunner(model, config)
+    runner = runtime.SparseWAMRunner(model, config)
     for offset in (0.0, 100.0):
         output = runner({"caption": [{"instruction": "pick up the cup"}], "offset": offset})
         background = output["vision"][0][0, 1:, 0][~controllers[-1].plan.keep]

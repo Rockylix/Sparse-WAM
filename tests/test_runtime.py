@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import pytest
 import torch
 
-from sparse_wam.config import PaperConfig
-from sparse_wam.runtime import PaperRunner, normalize_caption
+from sparse_wam.config import SparseWAMConfig
+from sparse_wam.runtime import SparseWAMRunner, normalize_caption
 
 
 def test_structured_caption_preserves_task_text_without_mutating_input():
@@ -29,7 +29,7 @@ def test_structured_caption_preserves_task_text_without_mutating_input():
 )
 def test_reject_incompatible_generation_schedule(override):
     with pytest.raises(ValueError):
-        PaperConfig("edge").validate_generation(override)
+        SparseWAMConfig("edge").validate_generation(override)
 
 
 def test_dense_control_metadata_and_failed_result_do_not_claim_sparse_execution():
@@ -46,7 +46,7 @@ def test_dense_control_metadata_and_failed_result_do_not_claim_sparse_execution(
         config=SimpleNamespace(rectified_flow_inference_config=SimpleNamespace(scheduler_type="unipc")),
         generate_samples_from_batch=generate,
     )
-    runner = PaperRunner(model, PaperConfig("nano", "compile"), mode="dense")
+    runner = SparseWAMRunner(model, SparseWAMConfig("nano", "compile"), mode="dense")
     batch = {"caption": [{"instruction": "pick up the cup"}]}
     assert runner(batch, seed=[1]) is output
     assert calls[0][1] == {"guidance": 3.0, "num_steps": 4, "shift": 5.0, "seed": [1]}

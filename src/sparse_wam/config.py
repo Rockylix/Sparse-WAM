@@ -1,11 +1,11 @@
-"""One authoritative configuration for paper equations (1)-(7) and Table 5."""
+"""Authoritative configuration for Sparse-WAM token selection and execution."""
 
 from dataclasses import asdict, dataclass
 from typing import Literal
 
 
 @dataclass(frozen=True)
-class PaperConfig:
+class SparseWAMConfig:
     backbone: Literal["edge", "nano"]
     execution: Literal["eager", "compile", "compile-graph"] = "eager"
     nano_packing_cache: bool = True
@@ -94,9 +94,9 @@ class PaperConfig:
         expected = {"num_steps": 4, "guidance": 3.0, "shift": 5.0}
         for key, value in expected.items():
             if kwargs.get(key, value) != value:
-                raise ValueError(f"Paper mode requires {key}={value}")
+                raise ValueError(f"Sparse-WAM requires {key}={value}")
         for key in ("guidance_interval", "velocity_postprocess_builder", "sampler", "net"):
             if kwargs.get(key) is not None:
-                raise ValueError(f"Paper mode cannot combine with a custom {key}")
+                raise ValueError(f"Sparse-WAM cannot combine with a custom {key}")
         if kwargs.get("normalize_cfg", False):
-            raise ValueError("Paper mode requires unnormalized CFG")
+            raise ValueError("Sparse-WAM requires unnormalized CFG")

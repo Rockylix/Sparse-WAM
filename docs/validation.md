@@ -23,7 +23,7 @@
 - 对 Nano layer 使用小型张量/reference attention，验证 profiling 只调用一次主 attention，并保持输出一致。
 - 通过实际 controller/hooks、packing adapter 和 sampler wrapper 验证 28/36 层的完整八次 CFG forward；网络权重用可审计测试替身。
 - 验证 step-0 conditional 背景 bootstrap、CFG 后且 UniPC 前的 velocity 替换，以及 L0/action/ROI 保持当前结果。
-- 连续两次 PaperRunner 请求使用不同输入，确认背景 cache 更新、不跨 chunk 复用；失败后清除 hooks，不把失败报告为成功。
+- 连续两次 SparseWAMRunner 请求使用不同输入，确认背景 cache 更新、不跨 chunk 复用；失败后清除 hooks，不把失败报告为成功。
 - 验证真实原生 packing 函数的 metadata、RoPE、异长 CFG 和恢复。为隔离缺失的 `loguru`，测试执行源码 AST 时只移除 logger import；不宣称完整 framework 已成功导入。
 - 验证结构化 caption 保留任务文本，以及 Dense 对照准确记录 8 dense / 0 sparse、无 scorer/cache；拒绝不兼容采样参数。
 

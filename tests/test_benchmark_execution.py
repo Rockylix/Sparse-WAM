@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import torch
 
 from sparse_wam.benchmark_execution import PairedExecution, ReplayCounter
-from sparse_wam.config import PaperConfig
+from sparse_wam.config import SparseWAMConfig
 
 
 def test_dense_eager_switch_restores_native_layers_and_heads():
@@ -25,7 +25,7 @@ def test_dense_eager_switch_restores_native_layers_and_heads():
         model=SimpleNamespace(net=net, config=SimpleNamespace(compile=SimpleNamespace())),
         sparse_wam_runner=SimpleNamespace(),
     )
-    switch = PairedExecution(service, PaperConfig("edge", "compile-graph"), dense_eager=True)
+    switch = PairedExecution(service, SparseWAMConfig("edge", "compile-graph"), dense_eager=True)
     for _ in range(2):
         switch.select("dense")
         assert net.language_model.model.layers[0] is eager

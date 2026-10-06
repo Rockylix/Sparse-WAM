@@ -1,17 +1,17 @@
-# 论文与代码对齐
+# Sparse-WAM 方法与实现
 
-规范来源：工作区 `Sparse_WAM.pdf`，方法第 4–6 页、附录 A、第 15 页表 4–5。
-用户明确约定：full step 仅为 step-0 conditional，随后同一步 unconditional 就使用稀疏选区。
+本文说明当前 Sparse-WAM 的选择、稀疏执行和缓存语义。
+full forward 仅为 step-0 conditional，随后同一步 unconditional 就使用稀疏选区。
 
-| 论文机制 | 整理后的实现 |
+| 方法机制 | 实现 |
 |---|---|
 | 对齐动作与未来帧，权重 (1,2,2,1)/6 | `scoring.profile_from_main_lse` |
 | attention mass × (1 − normalized entropy)，Top6 | `selection.select_tokens` |
-| 共同 Core 候选池与逐帧 Core80，公式（4）–（5） | 同上，pool 大小 `spatial - 104` |
-| Core union 外共享 Stable104，公式（6） | 同上，分数 `mean/(1+CV)` |
+| 共同 Core 候选池与逐帧 Core80 | 同上，pool 大小 `spatial - 104` |
+| Core union 外共享 Stable104 | 同上，分数 `mean/(1+CV)` |
 | 主 attention 全可见 key 的 LSE，避免第二次 attention 输出 | Edge 主 LSE ABI；Nano `nano_layer` 单次 attention |
 | 选中 token 真正经过 Attention/MLP，原始位置保留 | `controller` + `packing` |
-| 当前选区 prediction + 最近 full prediction，公式（7） | `VelocityCacheSampler`，CFG 后、UniPC 前 |
+| 当前选区 prediction + step0 缓存 prediction | `VelocityCacheSampler`，CFG 后、UniPC 前 |
 | 每 chunk 刷新，chunk 内复用 | 每请求新建 `SparseWAMController` 和 sampler wrapper |
 
 ## 四步执行表
@@ -27,7 +27,7 @@
 
 ## conditional-only full step 与 CFG 的衔接
 
-论文公式（7）没有展开 conditional-only full step 中未选 unconditional 背景的初始化细节。
+conditional-only full forward 需要显式定义未选 unconditional 背景的初始化方式。
 本实现沿用来源 Nano 分支 `piper_cosmos/cosmos3/k112_sparse.py` 的背景 bootstrap 处理，
 将这一处理与新的 C80/S104 selector 组合，**不采用 K112 的选区策略**：
 
@@ -38,13 +38,13 @@
 5. 后续每步在 `velocity_fn` 返回 CFG 后结果时，只将 future background 替换为缓存；action 和 L0 保持当前结果。
 6. 原生 UniPC 接收合成后的完整 velocity，积分公式与 timestep schedule 不变。
 
-该 bootstrap 是对 CFG 工程细节的明确选择，不把它冒称为论文单独写出的公式。
+该 bootstrap 是当前实现对 CFG 的明确近似，不是原生 dense CFG 的等价变换。
 它避免用跳过 Transformer 的 unconditional 背景 hidden 初始化不可靠的 CFG 差值。
 
 ## hidden restoration 与 velocity cache 的区别
 
 完整 hidden 恢复仍然保留：原生输出头需要原来的完整形状。
-但未选位置的输出头结果不会成为后续未来背景的更新依据；该依据由公式（7）的缓存替换。
+但未选位置的输出头结果不会成为后续未来背景的更新依据；该依据由 step0 的 velocity 缓存替换。
 因此这不是仅重命名来源分支的 `current_stack_input` 恢复路径，而是真实接入了采样层缓存。
 
 ## 运行约束
@@ -58,6 +58,6 @@
 
 ## 证据边界
 
-CPU 测试验证数学、生命周期和原生 packing 合同。没有真实模型 GPU 数值回归与闭环结果。
-整理版不能声称复现了论文的 1.8× 加速或成功率；性能和任务效果须在本版本与对应输入/权重上重新测量。
-源码参数与执行语义对齐，不等同于历史实验已复现。
+CPU 测试覆盖数学、生命周期和原生 packing 合同；Edge/Nano 已有真实模型的单 chunk GPU 验证。
+具体输入、权重、计时范围和已验证数值检查见 [验证记录](validation.md)。
+当前记录不建立完整闭环成功率，也不证明 compiled Sparse 与 eager Sparse 的普遍数值等价。

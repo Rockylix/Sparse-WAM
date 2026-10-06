@@ -15,7 +15,7 @@ import numpy as np
 import torch
 
 from sparse_wam.benchmark_execution import ReplayCounter
-from sparse_wam.config import PaperConfig
+from sparse_wam.config import SparseWAMConfig
 from sparse_wam.controller import SparseWAMController
 from sparse_wam.service import create_service
 
@@ -35,7 +35,7 @@ def main():
         p.error("output already exists")
     with np.load(args.observation, allow_pickle=False) as data:
         obs = {k: data[k].item() if data[k].ndim == 0 else data[k].copy() for k in data.files}
-    config = PaperConfig("nano", "compile-graph")
+    config = SparseWAMConfig("nano", "compile-graph")
     service, _ = create_service(config, checkpoint=args.checkpoint_path, native_config=args.native_config)
     runner = service.sparse_wam_runner
     generate = runner.generate

@@ -19,8 +19,8 @@ import numpy as np
 import torch
 
 from sparse_wam.benchmark_execution import ReplayCounter
-from sparse_wam.config import PaperConfig
-from sparse_wam.runtime import PaperRunner, activate_runtime, normalize_caption
+from sparse_wam.config import SparseWAMConfig
+from sparse_wam.runtime import SparseWAMRunner, activate_runtime, normalize_caption
 
 
 def clone(value):
@@ -132,7 +132,7 @@ def main():
     sample = ActionSFTDataset(raw, transform, "480")[args.sample_index]
     batch = normalize_caption(build_data_batch_from_sample(sample), model.input_caption_key)
     batch_hash = fingerprint(batch)
-    config = PaperConfig("nano", "compile-graph")
+    config = SparseWAMConfig("nano", "compile-graph")
     capture = {}
     generate = model.generate_samples_from_batch
 
@@ -144,7 +144,7 @@ def main():
         capture["generation_s"] = time.perf_counter() - start
         return result
 
-    runner = PaperRunner(model, config, generate=timed_generate)
+    runner = SparseWAMRunner(model, config, generate=timed_generate)
     prefills = [0]
 
     def pre_hook(module, a, kw):

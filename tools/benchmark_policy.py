@@ -14,7 +14,7 @@ import time
 import numpy as np
 import torch
 
-from sparse_wam.config import PaperConfig
+from sparse_wam.config import SparseWAMConfig
 from sparse_wam.benchmark_execution import PairedExecution, ReplayCounter
 from sparse_wam.service import create_service
 
@@ -39,7 +39,7 @@ def main():
         observation = {
             key: source[key].item() if source[key].ndim == 0 else source[key].copy() for key in source.files
         }
-    config = PaperConfig(args.backbone, args.execution, nano_packing_cache=not args.no_nano_packing_cache)
+    config = SparseWAMConfig(args.backbone, args.execution, nano_packing_cache=not args.no_nano_packing_cache)
     service, _ = create_service(
         config,
         checkpoint=args.checkpoint_path,
