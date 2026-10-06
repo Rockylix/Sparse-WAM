@@ -1,6 +1,6 @@
 # Sparse-WAM
 
-**Action-guided sparse inference for Cosmos3 Edge and Nano policies.**
+**Action-guided sparse inference for World Action Models (WAMs).**
 
 Sparse-WAM reduces future-vision token computation in joint video–action denoising,
 without training or changing model weights. It selects task-relevant tokens from
@@ -12,13 +12,16 @@ a first-step velocity cache to update unselected regions.
 
 ## Overview
 
-Each action chunk uses four denoising steps with conditional and unconditional
-CFG branches:
+Sparse-WAM combines full-compute step selection, Core/Stable token selection,
+sparse execution, and cached latent updates. The four-step Cosmos example below
+uses conditional and unconditional CFG branches; backbone-specific schedules
+are listed under [Supported configuration](#supported-configuration).
 
-1. **Score once.** Run the first conditional forward densely and collect
-   action-to-future relevance across layers.
-2. **Select tokens.** Combine 80 frame-specific Core tokens with 104 shared
-   Stable positions per future frame.
+1. **Select full-compute steps.** Use designated dense forwards to collect
+   action-to-future relevance across layers. In this configuration, the first
+   conditional forward provides the full-compute reference.
+2. **Select tokens.** Combine frame-specific Core tokens with shared Stable
+   token positions to form the retained region for each future frame.
 3. **Execute sparsely.** Reuse this mask for the remaining seven forwards.
    Selected tokens retain their original position encodings; observation and
    action tokens are not pruned.
@@ -40,23 +43,36 @@ inference: retaining action tokens does not guarantee unchanged action outputs.
 
 ## Supported configuration
 
-| Setting | Edge | Nano |
-|---|---|---|
-| Transformer layers | 28 | 36 |
-| Hidden width | 2048 | 4096 |
-| Future latent frames | 8 | 8 |
-| Predicted action horizon | 32 | 32 |
-| Spatial tokens per latent frame | 340 | Inferred from the input layout |
-| Retained future tokens per frame | 184 = Core80 + Stable104 | 184 = Core80 + Stable104 |
-| Denoising | 4 steps, guidance 3, shift 5 | 4 steps, guidance 3, shift 5 |
+| Setting | Cosmos3 Edge | Cosmos3 Nano | FastWAM-Joint (LIBERO) |
+|---|---|---|---|
+| Transformer layers | 28 | 36 | 30 per expert |
+| Hidden width | 2048 | 4096 | Video: 3072; action: 1024 |
+| Future latent frames | 8 | 8 | 2 |
+| Predicted action horizon | 32 | 32 | 32 |
+| Spatial tokens per latent frame | 340 (17×20) | Inferred from the input layout | 98 (7×14) |
+| Retained future tokens per frame | 184 = Core80 + Stable104 | 184 = Core80 + Stable104 | K31 default: Core19 + Stable12; K56 preset: Core19 + Stable37 |
+| Denoising | 4 steps, guidance 3, shift 5 | 4 steps, guidance 3, shift 5 | 10 steps, guidance 1, shift 5 |
+| Full / sparse forwards per chunk | 1 / 7 | 1 / 7 | 1 / 9 |
+| Implementation | Included here | Included here | Separate [FastWAM-Joint repository](https://github.com/Rockylix/Fastwam-joint) |
 
-Only step-0 conditional is dense; step-0 unconditional is already sparse.
+For Cosmos, only step-0 conditional is dense; step-0 unconditional is already sparse.
 The first-step background CFG initialization and restoration rules are described
 in [Method](docs/method.md).
 
-Current support is single-GPU, batch-one policy inference with the native UniPC
-sampler. Edge and Nano use separate runtimes and must run in separate processes.
-Budgets and the denoising schedule are fixed in this release.
+FastWAM-Joint values refer to the two-camera LIBERO configuration
+(`configs/model/fastwam_joint.yaml`, `configs/data/libero_2cam.yaml`, and
+`configs/sim_libero.yaml` in its repository). K31 is the current Qi checkout's
+default; K56 is a separate available preset, not an additional default.
+With guidance 1, it uses one forward per denoising step and caches the observation
+K/V after step 0. Its action-only path advances packed sparse video states;
+full background velocity reconstruction is used when predicting video.
+The Cosmos four-step/UniPC execution example does not describe that backend's
+entire sampling implementation.
+
+This checkout provides single-GPU, batch-one Cosmos policy inference with native
+UniPC. Edge and Nano use separate runtimes and must run in separate processes.
+Their budgets and denoising schedule are fixed in this release. FastWAM-Joint
+is documented here for comparison; it is not a `--backbone` option in this CLI.
 
 ## Quick start
 
