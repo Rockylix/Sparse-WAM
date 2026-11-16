@@ -85,27 +85,31 @@ git clone https://github.com/Rockylix/Sparse-WAM.git
 cd Sparse-WAM
 ```
 
-Use a compatible Cosmos environment with Linux, CUDA, PyTorch and the matching
-attention kernels. The recorded GPU tests use an RTX 4090 and PyTorch 2.10.0+cu130.
-In an existing compatible environment, install only the Sparse-WAM package:
+The commands below target RTX 4090 on Linux x86_64 with a CUDA 13-compatible
+NVIDIA driver. The project environment is managed by
+[uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```bash
-python -m pip install --no-deps -e .
+uv sync --locked --extra edge
+uv run --locked --extra edge python -m sparse_wam config --backbone edge
 ```
 
-For a fresh environment, dependency manifests are provided under
-`vendor/edge` and `vendor/nano`. An example CUDA 13 setup for Edge is:
+`.python-version` selects Python 3.13. The Linux x86_64 lock pins PyTorch
+2.14.1+cu130, torchvision 0.29.1+cu130 and cuDNN 9.24.0.43. Keep `--extra edge`
+on subsequent `uv run` commands to select the inference dependencies.
+Development tools are installed by the default `dev` group. The recorded RTX
+4090 results use the earlier PyTorch 2.10.0+cu130 environment; the current locked
+stack still requires a checkpoint-level smoke run on RTX 4090.
 
-```bash
-uv sync --project vendor/edge --all-extras --group cu130-train --group policy-server
-uv pip install --python vendor/edge/.venv/bin/python --no-deps -e .
-source vendor/edge/.venv/bin/activate
-```
+The pinned runtime requires Python >=3.12. Its older full training dependency
+groups pin cuDNN 9.15, while its current attention backend requires >=9.22;
+use the root project environment for this Edge eager workflow. Runtime activation
+defaults `COSMOS_TRAINING=0` before loading the framework. It uses native cuDNN
+attention without FlashAttention, NATTEN or Transformer Engine.
 
-For Nano, use `vendor/nano` instead. This is the full upstream dependency set,
-not a minimal installation; fresh installation has not been independently
-validated on every platform. Keep the source checkout available: a standalone
-wheel does not bundle the vendored runtimes.
+Keep the complete source checkout available: a standalone wheel does not bundle
+the vendored runtimes. Nano requires its matching environment in a separate
+process; the root `edge` extra covers Edge offline inference.
 
 ### 2. Model assets
 
@@ -121,13 +125,16 @@ Weights and datasets are not included.
 Inspect the effective Sparse-WAM configuration without loading weights:
 
 ```bash
-python -m sparse_wam config --backbone edge --execution compile-graph
-python -m sparse_wam config --backbone nano --execution compile-graph
+uv run --locked --extra edge python -m sparse_wam config --backbone edge --execution compile-graph
+uv run --locked --extra edge python -m sparse_wam config --backbone nano --execution compile-graph
 ```
 
 ### 3. Start a policy server
 
-Run the following command in the corresponding backend environment:
+WebSocket serving additionally requires a compatible OpenPI transport and any
+auxiliary models enabled in the native JSON config. The minimal `edge` extra
+covers offline inference; this server example assumes an existing compatible
+backend environment with the editable Sparse-WAM package installed:
 
 ```bash
 python -m sparse_wam serve \
@@ -146,6 +153,34 @@ To run the dense control, explicitly set `--mode dense --execution eager`.
 The default execution backend is eager. CUDA Graphs are managed per compiled
 layer/function, not as one graph around the complete sampling loop.
 Nano packing reuse can be disabled with `--no-nano-packing-cache`.
+
+### Smoke test (Edge)
+
+Prepare the official checkpoint and one recorded NVIDIA DROID observation:
+
+```bash
+uv run --locked --extra edge python tools/prepare_smoke.py
+uv run --locked --extra edge python tools/benchmark_policy.py \
+  --backbone edge --checkpoint-path checkpoints/edge \
+  --observation outputs/smoke/observation.npz \
+  --native-config configs/smoke_edge.json --smoke \
+  --output outputs/smoke/edge.json
+```
+
+The preparation tool records the resolved model and sample revisions in
+provenance sidecars. The Edge checkpoint stays under `checkpoints/`; its pinned
+native Wan2.2 VAE uses the standard Hugging Face cache (`HF_HOME` is respected).
+Samples, logs and reports stay under `outputs/`. Both project directories are
+ignored by Git. Download access may
+require `HF_TOKEN` with access to the NVIDIA model repositories.
+
+`--smoke` runs eager inference with one warmup pair and one measured pair,
+using the same input and seed for Dense/Sparse in each pair. It checks finite
+`[32, 8]` actions and the actual sparse execution counters, then records versions,
+provenance, timings, memory use and action MSE in JSON. A failed check exits
+nonzero. The fixture config skips auxiliary content guardrail models and video
+decoding for this offline test; serving defaults are unchanged. No speedup or
+closed-loop task-success threshold is imposed.
 
 ## Benchmarks
 
@@ -179,7 +214,7 @@ the native service input; arrays are NumPy values and `prompt` is a Unicode scal
 Pickled objects are not accepted.
 
 ```bash
-python tools/benchmark_policy.py \
+uv run --locked --extra edge python tools/benchmark_policy.py \
   --backbone edge \
   --checkpoint-path /path/to/Cosmos3-Edge-Policy-DROID \
   --native-config /path/to/native.json \
@@ -204,9 +239,9 @@ Run either tool with `--help` for required inputs and options.
 ## Development
 
 ```bash
-python -m pytest -q
-python -m ruff check src tests tools
-python tools/check_sources.py
+uv run --locked --extra edge pytest -q
+uv run --locked --extra edge ruff check src tests tools
+uv run --locked --extra edge python tools/check_sources.py
 ```
 
 Tests cover scoring, token selection, sparse execution contracts, cache lifecycle
@@ -217,15 +252,16 @@ closed-loop evaluation.
 |---|---|
 | `src/sparse_wam/` | Selection, scoring, packing, velocity cache and runtime |
 | `src/sparse_wam/backends/` | Edge and Nano execution adapters |
-| `configs/` | Exported configuration summaries |
+| `configs/` | Configuration summaries and native smoke overrides |
 | `tools/` | Benchmarks and source verification |
 | `tests/` | Unit and numerical tests |
 | `vendor/` | Pinned Cosmos runtimes |
 | `docs/` | Method, backend details and validation records |
 
 Python entry points are `SparseWAMConfig` in `sparse_wam.config` and
-`SparseWAMRunner` in `sparse_wam.runtime`. Configuration summaries in
-`configs/` are generated records, not runtime override files.
+`SparseWAMRunner` in `sparse_wam.runtime`. `configs/edge.json` and
+`configs/nano.json` are generated configuration summaries. `configs/smoke_edge.json`
+provides native runtime overrides for the offline smoke test.
 
 ## License and acknowledgments
 

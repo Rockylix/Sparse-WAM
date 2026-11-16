@@ -1,5 +1,23 @@
 # 本地验证记录
 
+## uv 环境与 Edge 冒烟入口
+
+根项目提供面向 Linux x86_64 / RTX 4090 的 uv 环境，默认 Python 3.13。
+`uv.lock` 固定 PyTorch 2.14.1+cu130、torchvision 0.29.1+cu130 和 cuDNN 9.24.0.43。
+安装与运行命令见 README；保留 `--locked --extra edge` 以选择固定的 Edge 推理依赖。
+推理入口在导入框架前默认设置 `COSMOS_TRAINING=0`，vendor 快照保持不变。
+
+`tools/prepare_smoke.py` 下载固定 revision 的官方 DROID checkpoint、原生 WAN VAE 和录制样本，并记录来源。
+Policy 位于 `checkpoints/edge`，原生 VAE 使用标准 Hugging Face 缓存，输入与报告位于 `outputs/smoke`。
+`tools/benchmark_policy.py --smoke` 执行一组预热和一组测量，检查有限的 `[32, 8]` 动作及真实稀疏执行计数；失败时退出非零并写入失败报告。
+
+提交前软件检查：86 项测试、ruff、锁文件校验、1357 个来源文件校验、五个 CLI 帮助入口、源码包及 wheel 构建通过。
+测试包含自定义样本输出路径、来源哈希校验和失败报告替换旧成功报告。
+
+下文已有 RTX 4090 实测使用 PyTorch 2.10.0+cu130。当前新锁定环境仍需在 RTX 4090 上完成真实 checkpoint 冒烟；本节记录软件检查和工具能力，不新增 GPU 性能或闭环成功率结论。
+
+## 首次整理记录（2026-10-01）
+
 日期：2026-10-01。环境：Windows、Python 3.12.7、PyTorch 2.5.1+cpu，CUDA 不可用。
 
 本表记录首次本地整理时的检查。后续按用户指定，将该目录初始化为独立 Git 仓库并以 `Rockylix/Sparse-WAM` 为发布目标；不继承来源仓库历史。
