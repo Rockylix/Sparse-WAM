@@ -10,6 +10,7 @@ Edge 是当前主要安装和复现入口，根目录锁文件正式面向 Linux
 |---|---|---|---|
 | 2026-10-06 / RTX 4090 | Edge、Nano；PyTorch 2.10.0+cu130；Dense eager / Sparse compile+Graph | 下文单 chunk、计时边界及 Nano packing 记录 | 保留历史文档；原始 JSON/log 未包含在当前 checkout，不能当作当前版本复测 |
 | 2026-11-16 / NVIDIA GB10、Linux ARM64 | Edge eager；PyTorch 2.14.1+cu130、cuDNN 9.24.0.43 | 两次运行各一组预热和一组测量，有限动作及真实稀疏执行计数通过 | [脱敏 JSON 与原始文件哈希](evidence/README.md)；未记录代码 commit，未验证 Nano/compile/Graph；不证明 x86_64 锁支持 ARM64 |
+| 2026-11-24 / NVIDIA GB10、Linux ARM64 | Edge eager；PyTorch 2.14.1+cu130、cuDNN 9.24.0.43 | 干净代码提交 `168f041` 上的 paired smoke 和独立离线示例均通过 | [本轮报告及独立 manifest](evidence/README.md#2026-11-24-release-validation)；完整 commit、实现摘要、配置与输入 hash 可核查；范围限 GB10 Edge eager |
 | 当前锁 / Linux x86_64、RTX 4090 | Edge；PyTorch 2.14.1+cu130 | 已提供安装、离线示例和 smoke 入口 | 尚无对应锁环境的 RTX 4090 真实 checkpoint 验收记录 |
 | Nano 环境 | 独立依赖环境、checkpoint/VAE/tokenizer | 保留适配器与历史实验说明 | 本次不提供一键环境或新的实机验收；不能直接使用 root `edge` extra 声称复现 Nano |
 | 闭环任务评估 | 机械臂或仿真器 | 本仓库记录未建立闭环成功率 | 离线 MSE、有限值和单 chunk 延迟不替代完整论文任务协议 |
@@ -17,6 +18,36 @@ Edge 是当前主要安装和复现入口，根目录锁文件正式面向 Linux
 `outputs/` 是本地工作目录，被 Git 忽略。下文历史路径是当时的产物位置，
 不是可以从仓库直接下载的附件。论文全部实验复现、不同 instruction 的 GPU
 cache 失效、当前环境的多尺寸推理等仍以对应验证结果为准。
+
+## 2026-11-24：本轮 Edge 开源交付验收
+
+软件提交：`168f04175487c9361fe7cd2de4b102164461de08`。本轮 CPU 单元测试 **121 项通过**；
+1357 个来源文件及 1 项登记修改校验通过，源码发行包解包后同样通过 **121 项测试**。
+这些软件检查与下面的真实模型验证各有独立范围。
+
+云端 [GitHub Actions 45387620408](https://github.com/Rockylix/Sparse-WAM/actions/runs/45387620408)
+全部步骤成功：Linux x86_64 / Python 3.13 / CPU PyTorch 环境中的单元测试、来源校验、
+发行包构建和解包后的测试均通过。该 CI 检查软件发行完整性，不加载 GPU 模型。
+
+最终 paired smoke 在干净工作树上执行，报告记录 `git_dirty=false` 和实现 SHA256
+`5ea9d51e6fdd22b7807769ee5d4397d1489c95fee0200e6223c832b876c2c7dc`。
+设备为 NVIDIA GB10（SM 12.1）、Linux ARM64；Python 3.13.9、PyTorch 2.14.1+cu130、
+cuDNN 9.24.0.43。使用固定 revision 的 Edge DROID checkpoint、原生 VAE 和录制样本，
+报告同时记录命令参数、native JSON 与 observation SHA256。
+
+一组 Dense/Sparse 预热和一组测量的四次请求全部通过；动作均为有限 `[32, 8]`。
+Sparse 执行 1 dense / 7 sparse、224 个 block 调用、7 次 pack/restore 和 4 次 velocity
+更新；网格 17×20，每帧保留 Core80+Stable104=184，GEN 从 3093 缩至 1845。
+单组完整 policy 时间为 Dense 2.5248 s、Sparse 1.6376 s，action MSE 0.017466；峰值
+allocated/reserved 约 8.242/8.461 GiB。这是功能冒烟，不对速度分布或动作质量设门槛。
+
+同一干净代码提交上运行 `examples/infer_edge.py`，得到 `[32, 8]` action NPZ 和对应 JSON
+摘要。仅 JSON 摘要随本次发布归档，动作二进制保留在本地输出目录。
+
+[本轮脱敏证据与独立 manifest](evidence/README.md#2026-11-24-release-validation)
+保留 source/archived 哈希及测量值；不覆盖或回填 2026-11-16 的历史记录。
+后续证据和文档提交不改变被测实现摘要。本轮没有增加 RTX 4090、Nano、compile/Graph
+或闭环成功率结论；Linux x86_64 锁的正式目标范围保持不变。
 
 ## uv 环境与 Edge 冒烟入口
 

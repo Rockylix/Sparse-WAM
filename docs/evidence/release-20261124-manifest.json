@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "archived_on": "2026-11-24",
+  "archive_kind": "release-validation-evidence",
+  "new_gpu_run": true,
+  "scope": "Edge eager on NVIDIA GB10/Linux ARM64: one warmup pair and one measured Dense/Sparse pair, plus one standalone offline example; no RTX 4090, Nano, compile/Graph or closed-loop validation",
+  "source_commit": "168f04175487c9361fe7cd2de4b102164461de08",
+  "source_git_dirty": false,
+  "implementation_sha256": "5ea9d51e6fdd22b7807769ee5d4397d1489c95fee0200e6223c832b876c2c7dc",
+  "timestamp_note": "The smoke report records its start time; the original example summary has no timestamp and its started_at_utc remains null.",
+  "files": [
+    {
+      "source_path": "outputs/release_edge_20261124/edge_smoke_final.json",
+      "source_sha256": "276523c2ba86aabdae6f10da7bf33b0a078aed559fa42fd155971b0b6bc7374d",
+      "archived_path": "edge-gb10-20261124.json",
+      "archived_sha256": "c46c0da4cd55d9c4ca7ad3a5f542d7a2d0bf0bef9987602b8c8e50c4bb2880f4",
+      "started_at_utc": "2026-11-24T11:48:25.265330+00:00",
+      "source_commit": "168f04175487c9361fe7cd2de4b102164461de08",
+      "source_git_dirty": false,
+      "implementation_sha256": "5ea9d51e6fdd22b7807769ee5d4397d1489c95fee0200e6223c832b876c2c7dc",
+      "redactions": [
+        "Checkout absolute path replaced with <CHECKOUT> where present",
+        "Hugging Face cache absolute path replaced with <HF_CACHE> where present"
+      ],
+      "format_changes": [
+        "JSON serialized with consistent indentation"
+      ]
+    },
+    {
+      "source_path": "outputs/release_edge_20261124/example_action.json",
+      "source_sha256": "9f2e74ce77a47c3d4c2f097ab2ea93ac34a85acbfd4c0c65b0a27a1160e0ffdd",
+      "archived_path": "edge-gb10-20261124-example.json",
+      "archived_sha256": "9f2e74ce77a47c3d4c2f097ab2ea93ac34a85acbfd4c0c65b0a27a1160e0ffdd",
+      "started_at_utc": null,
+      "source_commit": "168f04175487c9361fe7cd2de4b102164461de08",
+      "source_git_dirty": false,
+      "implementation_sha256": "5ea9d51e6fdd22b7807769ee5d4397d1489c95fee0200e6223c832b876c2c7dc",
+      "redactions": [
+        "Checkout absolute path replaced with <CHECKOUT> where present",
+        "Hugging Face cache absolute path replaced with <HF_CACHE> where present"
+      ],
+      "format_changes": [
+        "JSON serialized with consistent indentation"
+      ]
+    }
+  ]
+}

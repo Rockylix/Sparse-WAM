@@ -101,10 +101,13 @@ on subsequent `uv run` commands to select the inference dependencies.
 `uv sync` installs this project in editable mode; keep this checkout in place.
 Development tools are installed by the default `dev` group. The recorded RTX
 4090 results use the earlier PyTorch 2.10.0+cu130 environment; the current locked
-stack still requires a checkpoint-level smoke run on RTX 4090. A historical
-GB10/ARM64 Edge eager smoke with the newer versions passed; its
-[archived evidence](docs/evidence/README.md) does not establish ARM64 support
-for the Linux x86_64 lock or validate compile/Graph execution.
+stack still requires a checkpoint-level smoke run on RTX 4090. On 2026-11-24,
+GB10/ARM64 Edge eager passed the paired smoke and offline example on clean code
+commit `168f04175487c9361fe7cd2de4b102164461de08` with the newer package versions.
+The [release evidence](docs/evidence/README.md#2026-11-24-release-validation)
+records the implementation hash and input/configuration provenance. This verifies
+that GB10 environment; it does not establish ARM64 support for the Linux x86_64
+lock or validate compile/Graph execution.
 
 The pinned runtime requires Python >=3.12. Its older full training dependency
 groups pin cuDNN 9.15, while its current attention backend requires >=9.22;
@@ -240,7 +243,7 @@ See [validation details](docs/validation.md) for configurations and output check
 The original local JSON reports for the historical 4090 rows are not included
 in this checkout. These rows retain the recorded historical measurements; they
 are not results rerun against the current release. The separately
-[archived GB10 smoke](docs/evidence/README.md) is a functional check, not a
+[GB10 smoke evidence](docs/evidence/README.md) is a functional check, not a
 replacement benchmark or a closed-loop evaluation.
 
 ### Paired observation benchmark
