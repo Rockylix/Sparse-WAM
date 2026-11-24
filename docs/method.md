@@ -45,7 +45,7 @@ conditional-only full forward 需要显式定义未选 unconditional 背景的�
 
 完整 hidden 恢复仍然保留：原生输出头需要原来的完整形状。
 但未选位置的输出头结果不会成为后续未来背景的更新依据；该依据由 step0 的 velocity 缓存替换。
-因此这不是仅重命名来源分支的 `current_stack_input` 恢复路径，而是真实接入了采样层缓存。
+hidden restoration 满足输出头的形状要求，velocity cache 用于采样层的背景更新。
 
 ## 运行约束
 
@@ -56,8 +56,8 @@ conditional-only full forward 需要显式定义未选 unconditional 背景的�
 - Sparse token IDs 与 RoPE 同步裁剪，不重新编号。
 - Stable 是共享位置，不是跨帧共享 hidden feature。
 
-## 证据边界
+## 验证范围
 
-CPU 测试覆盖数学、生命周期和原生 packing 合同；Edge/Nano 已有真实模型的单 chunk GPU 验证。
-具体输入、权重、计时范围和已验证数值检查见 [验证记录](validation.md)。
-当前记录不建立完整闭环成功率，也不证明 compiled Sparse 与 eager Sparse 的普遍数值等价。
+CPU 测试覆盖数学、生命周期和原生 packing 的接口约定。真实模型的输入、计时口径和执行
+计数按 [RTX 4090 验证流程](validation.md) 检查。单 chunk 冒烟不建立闭环成功率，
+也不证明 compiled Sparse 与 eager Sparse 的普遍数值等价。

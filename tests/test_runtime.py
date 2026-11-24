@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -6,6 +9,18 @@ import torch
 
 from sparse_wam.config import SparseWAMConfig
 from sparse_wam.runtime import SparseWAMRunner, normalize_caption
+
+
+def test_runtime_selects_inference_before_framework_flags_are_imported():
+    environment = {k: v for k, v in os.environ.items() if k != "COSMOS_TRAINING"}
+    environment["COSMOS_INTERNAL"] = "0"
+    result = subprocess.run(
+        [sys.executable, "-c", "from sparse_wam.runtime import activate_runtime; "
+         "activate_runtime('edge'); from cosmos_framework.utils.flags import TRAINING; "
+         "assert TRAINING is False"],
+        env=environment, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_structured_caption_preserves_task_text_without_mutating_input():

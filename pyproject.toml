@@ -1,17 +1,81 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "sparse-wam-cosmos3"
 version = "0.1.0"
 description = "Action-guided sparse imagination for Cosmos3 Edge and Nano policies"
-requires-python = ">=3.10"
-license = {text = "OpenMDW-1.1"}
+readme = "README.md"
+requires-python = ">=3.12"
+license = "LicenseRef-OpenMDW-1.1"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 dependencies = ["torch>=2.5"]
 
+[project.urls]
+Homepage = "https://rockylix.github.io/Sparse-WAM.github.io/"
+Paper = "https://arxiv.org/abs/2609.38984"
+Repository = "https://github.com/Rockylix/Sparse-WAM"
+Documentation = "https://github.com/Rockylix/Sparse-WAM#readme"
+Issues = "https://github.com/Rockylix/Sparse-WAM/issues"
+
 [project.optional-dependencies]
-test = ["pytest>=8"]
+test = ["pytest>=8", "numpy>=2,<2.3", "pillow>=12.2"]
+edge = [
+  "torch==2.14.1",
+  "torchvision==0.29.1",
+  "accelerate",
+  "attrs",
+  "av",
+  "boto3",
+  "cattrs",
+  "diffusers>=0.39,<0.40",
+  "einops",
+  "huggingface-hub>=0.34,<1",
+  "hydra-core",
+  "imageio",
+  "imageio-ffmpeg",
+  "loguru",
+  "msgpack",
+  "numpy>=2,<2.3",
+  "nvidia-ml-py",
+  "obstore",
+  "omegaconf",
+  "pillow>=12.2",
+  "pydantic>=2",
+  "qwen-vl-utils",
+  "requests",
+  "safetensors",
+  "scipy",
+  "termcolor",
+  "transformers>=4.57.1,<5",
+  "tyro",
+  "wandb",
+  "webdataset",
+  "websockets",
+  "iopath>=0.1.10",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.12", "numpy>=2,<2.3", "pillow>=12.2"]
+
+[tool.uv]
+required-version = ">=0.11.3"
+environments = [
+  "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+required-environments = [
+  "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [project.scripts]
 sparse-wam = "sparse_wam.cli:main"
@@ -25,5 +89,8 @@ pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 110
-target-version = "py310"
+target-version = "py312"
 extend-exclude = ["vendor"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

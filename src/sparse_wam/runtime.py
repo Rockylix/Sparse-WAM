@@ -22,6 +22,9 @@ def activate_runtime(backbone):
         raise RuntimeError(
             "Use an editable install from the complete source checkout; vendored runtime is missing"
         )
+    # Upstream defaults to training imports, including optional storage clients.
+    # Select inference before framework modules read their process-wide flags.
+    os.environ.setdefault("COSMOS_TRAINING", "0")
     existing = sys.modules.get("cosmos_framework")
     if existing is not None:
         paths = [Path(p).resolve() for p in existing.__path__]

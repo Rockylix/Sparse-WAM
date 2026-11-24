@@ -1,0 +1,44 @@
+name: Source release checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      CUDA_VISIBLE_DEVICES: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.8"
+          python-version: "3.13"
+      - name: Check the inference lock without loading models
+        run: uv lock --check
+      - name: Install locked development dependencies and CPU PyTorch
+        run: |
+          uv sync --locked --only-group dev
+          uv pip install --python .venv/bin/python 'torch==2.14.1' --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --python .venv/bin/python --no-deps --editable .
+      - name: Unit tests and source integrity
+        run: |
+          .venv/bin/python -m pytest -q
+          .venv/bin/ruff check src tests tools examples
+          .venv/bin/python tools/check_sources.py
+          .venv/bin/python -m sparse_wam --help
+          .venv/bin/python -m sparse_wam serve --help
+          .venv/bin/python -m sparse_wam config --backbone edge
+          .venv/bin/python -m sparse_wam config --backbone nano
+          .venv/bin/python examples/infer_edge.py --help
+      - name: Build and verify source and wheel distributions
+        run: |
+          uv build --out-dir dist
+          .venv/bin/python tools/check_distribution.py --dist dist

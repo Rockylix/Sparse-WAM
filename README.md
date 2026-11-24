@@ -1,236 +1,27 @@
 # Sparse-WAM
 
-**Action-guided sparse inference for World Action Models (WAMs).**
+[Website](https://rockylix.github.io/Sparse-WAM.github.io/) · [Paper (arXiv)](https://arxiv.org/abs/2609.38984)
 
-Sparse-WAM reduces future-vision token computation in joint video–action denoising,
-without training or changing model weights. It selects task-relevant tokens from
-action attention, executes the Transformer on compact token sequences, and uses
-a first-step velocity cache to update unselected regions.
+Action-guided sparse inference for World Action Models. The primary setup is
+Cosmos3 Edge on a single NVIDIA RTX 4090 with Linux x86_64.
 
-[Method](docs/method.md) · [Quick start](#quick-start) ·
-[Benchmarks](#benchmarks) · [Validation](docs/validation.md)
+## Environment
 
-## Overview
-
-Sparse-WAM combines full-compute step selection, Core/Stable token selection,
-sparse execution, and cached latent updates. The four-step Cosmos example below
-uses conditional and unconditional CFG branches; backbone-specific schedules
-are listed under [Supported configuration](#supported-configuration).
-
-1. **Select full-compute steps.** Use designated dense forwards to collect
-   action-to-future relevance across layers. In this configuration, the first
-   conditional forward provides the full-compute reference.
-2. **Select tokens.** Combine frame-specific Core tokens with shared Stable
-   token positions to form the retained region for each future frame.
-3. **Execute sparsely.** Reuse this mask for the remaining seven forwards.
-   Selected tokens retain their original position encodings; observation and
-   action tokens are not pruned.
-4. **Update the full latent.** Use current predictions inside the selected
-   region and cached step-0 velocity outside it, before the native UniPC update.
-
-The mask and velocity cache reset at every action chunk. This is approximate
-inference: retaining action tokens does not guarantee unchanged action outputs.
-
-### Efficient execution
-
-- Reuse the main attention's log-sum-exp (LSE) for scoring, avoiding a second
-  attention-output computation. Local action–future QK products are still computed.
-- Batch relevance scoring across future frames and reuse token-layout metadata.
-- Reduce the actual attention and MLP input length, rather than masking dense outputs.
-- Support eager, Torch Compile, and compiler-managed CUDA Graph execution.
-- On Nano, offload the Reasoner after instruction prefill, reuse instruction KV,
-  and cache request-local denoising packing metadata.
-
-## Supported configuration
-
-| Setting | Cosmos3 Edge | Cosmos3 Nano | FastWAM-Joint (LIBERO) |
-|---|---|---|---|
-| Transformer layers | 28 | 36 | 30 per expert |
-| Hidden width | 2048 | 4096 | Video: 3072; action: 1024 |
-| Future latent frames | 8 | 8 | 2 |
-| Predicted action horizon | 32 | 32 | 32 |
-| Spatial tokens per latent frame | 340 (17×20) | Inferred from the input layout | 98 (7×14) |
-| Retained future tokens per frame | 184 = Core80 + Stable104 | 184 = Core80 + Stable104 | K31 default: Core19 + Stable12; K56 preset: Core19 + Stable37 |
-| Denoising | 4 steps, guidance 3, shift 5 | 4 steps, guidance 3, shift 5 | 10 steps, guidance 1, shift 5 |
-| Full / sparse forwards per chunk | 1 / 7 | 1 / 7 | 1 / 9 |
-| Implementation | Included here | Included here | Separate [FastWAM-Joint repository](https://github.com/Rockylix/Fastwam-joint) |
-
-For Cosmos, only step-0 conditional is dense; step-0 unconditional is already sparse.
-The first-step background CFG initialization and restoration rules are described
-in [Method](docs/method.md).
-
-FastWAM-Joint values refer to the two-camera LIBERO configuration
-(`configs/model/fastwam_joint.yaml`, `configs/data/libero_2cam.yaml`, and
-`configs/sim_libero.yaml` in its repository). K31 is the current Qi checkout's
-default; K56 is a separate available preset, not an additional default.
-With guidance 1, it uses one forward per denoising step and caches the observation
-K/V after step 0. Its action-only path advances packed sparse video states;
-full background velocity reconstruction is used when predicting video.
-The Cosmos four-step/UniPC execution example does not describe that backend's
-entire sampling implementation.
-
-This checkout provides single-GPU, batch-one Cosmos policy inference with native
-UniPC. Edge and Nano use separate runtimes and must run in separate processes.
-Their budgets and denoising schedule are fixed in this release. FastWAM-Joint
-is documented here for comparison; it is not a `--backbone` option in this CLI.
-
-## Quick start
-
-### 1. Environment
-
-Clone the complete source checkout:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and use a
+CUDA 13-compatible NVIDIA driver. Python 3.13 and the inference dependencies are
+managed by the project lockfile.
 
 ```bash
 git clone https://github.com/Rockylix/Sparse-WAM.git
 cd Sparse-WAM
+uv sync --locked --extra edge
+source .venv/bin/activate
+python -m sparse_wam config --backbone edge
 ```
 
-Use a compatible Cosmos environment with Linux, CUDA, PyTorch and the matching
-attention kernels. The recorded GPU tests use an RTX 4090 and PyTorch 2.10.0+cu130.
-In an existing compatible environment, install only the Sparse-WAM package:
+Keep the complete source checkout; model weights are obtained separately.
+Follow the [RTX 4090 guide](docs/rtx4090.md) to prepare assets and run offline inference.
 
-```bash
-python -m pip install --no-deps -e .
-```
+[Python API](docs/api.md) · [Method](docs/method.md) · [Validation](docs/validation.md)
 
-For a fresh environment, dependency manifests are provided under
-`vendor/edge` and `vendor/nano`. An example CUDA 13 setup for Edge is:
-
-```bash
-uv sync --project vendor/edge --all-extras --group cu130-train --group policy-server
-uv pip install --python vendor/edge/.venv/bin/python --no-deps -e .
-source vendor/edge/.venv/bin/activate
-```
-
-For Nano, use `vendor/nano` instead. This is the full upstream dependency set,
-not a minimal installation; fresh installation has not been independently
-validated on every platform. Keep the source checkout available: a standalone
-wheel does not bundle the vendored runtimes.
-
-### 2. Model assets
-
-Provide a local policy checkpoint together with its matching VAE and tokenizer.
-Weights and datasets are not included.
-
-- RoboLab examples use Cosmos3-Edge-Policy-DROID or Cosmos3-Nano-Policy-DROID.
-- Piper HDF5 evaluation requires the matching Piper checkpoint and data adapter;
-  it is not interchangeable with DROID evaluation.
-- Use `--native-config` for local asset paths and native service settings. Its
-  JSON fields follow the selected runtime's `RobolabServerArgs`.
-
-Inspect the effective Sparse-WAM configuration without loading weights:
-
-```bash
-python -m sparse_wam config --backbone edge --execution compile-graph
-python -m sparse_wam config --backbone nano --execution compile-graph
-```
-
-### 3. Start a policy server
-
-Run the following command in the corresponding backend environment:
-
-```bash
-python -m sparse_wam serve \
-  --backbone edge \
-  --checkpoint-path /path/to/Cosmos3-Edge-Policy-DROID \
-  --native-config /path/to/native.json \
-  --mode sparse --execution compile-graph \
-  --host 127.0.0.1 --port 8000 --seed 0
-```
-
-For Nano, set `--backbone nano` and use its checkpoint/environment.
-Nano automatically enables Reasoner offload and instruction KV caching; GEN
-weights remain on the GPU. Do not combine this with per-layer model offload.
-
-To run the dense control, explicitly set `--mode dense --execution eager`.
-The default execution backend is eager. CUDA Graphs are managed per compiled
-layer/function, not as one graph around the complete sampling loop.
-Nano packing reuse can be disabled with `--no-nano-packing-cache`.
-
-## Benchmarks
-
-### Recorded single-chunk latency
-
-Synchronized, warm single-chunk latency on RTX 4090:
-
-| Model / input | Before optimization | After optimization | Speedup |
-|---|---:|---:|---:|
-| Edge DROID / Banana observation, 340 tokens per frame | 0.8521 s | 0.4615 s | 1.846× |
-| Nano Piper20k / HDF5, 360 tokens per frame | 3.3409 s | 1.8388 s | 1.817× |
-| FastWAM-Joint / LIBERO, K56 (Core19 + Stable37) | 0.4273 s | 0.2151 s | 1.986× |
-
-Before optimization: **Dense eager**. After optimization: **sparse + Torch Compile + CUDA Graph**.
-Values are medians of warm measurements, not cold-start times.
-Edge uses 5 measured pairs; Nano uses 20; both follow 3 warmup pairs.
-These measure **sparsity plus compilation**, not the isolated effect of pruning.
-Cosmos rows time generation only; the FastWAM-Joint row times its native
-action-only inference call with the K56 preset (not the K31 default).
-The latter is an existing [FastWAM-Joint benchmark record](https://github.com/Rockylix/Fastwam-joint/blob/88fed98/docs/fastwam_joint_sparse_cn.md),
-not a new measurement through this repository's CLI. Backend timing scopes differ;
-each speedup compares that backend against its own dense control.
-Cold compilation/prefill, external input preprocessing, RPC and future-video
-decoding are excluded. These timings do not establish closed-loop task success.
-See [validation details](docs/validation.md) for configurations and output checks.
-
-### Paired observation benchmark
-
-Provide an NPZ containing a recorded RoboLab/openpi observation. Keys must match
-the native service input; arrays are NumPy values and `prompt` is a Unicode scalar.
-Pickled objects are not accepted.
-
-```bash
-python tools/benchmark_policy.py \
-  --backbone edge \
-  --checkpoint-path /path/to/Cosmos3-Edge-Policy-DROID \
-  --native-config /path/to/native.json \
-  --observation /path/to/observation.npz \
-  --execution compile-graph --dense-eager \
-  --warmup 3 --repeats 20 --seed 0 \
-  --output outputs/edge_benchmark.json
-```
-
-This tool measures **complete policy inference**, including preprocessing and
-action postprocessing, so its speedup need not match the generation-only table.
-It reports mean/median/P90, paired action MSE, token counts and observed Graph replays.
-
-Additional tools:
-
-- `tools/benchmark_nano_hdf5.py`: generation-only Piper HDF5 evaluation using
-  `SparseWAMRunner`; requires an external Piper checkout for data reading/collation.
-- `tools/benchmark_nano_packing.py`: paired packing on/off timing and output regression.
-
-Run either tool with `--help` for required inputs and options.
-
-## Development
-
-```bash
-python -m pytest -q
-python -m ruff check src tests tools
-python tools/check_sources.py
-```
-
-Tests cover scoring, token selection, sparse execution contracts, cache lifecycle
-and benchmark dispatch. CPU tests do not substitute for checkpoint-level GPU or
-closed-loop evaluation.
-
-| Path | Purpose |
-|---|---|
-| `src/sparse_wam/` | Selection, scoring, packing, velocity cache and runtime |
-| `src/sparse_wam/backends/` | Edge and Nano execution adapters |
-| `configs/` | Exported configuration summaries |
-| `tools/` | Benchmarks and source verification |
-| `tests/` | Unit and numerical tests |
-| `vendor/` | Pinned Cosmos runtimes |
-| `docs/` | Method, backend details and validation records |
-
-Python entry points are `SparseWAMConfig` in `sparse_wam.config` and
-`SparseWAMRunner` in `sparse_wam.runtime`. Configuration summaries in
-`configs/` are generated records, not runtime override files.
-
-## License and acknowledgments
-
-Distributed under [OpenMDW-1.1](LICENSE). Sparse-WAM builds on Cosmos Framework;
-third-party notices and source provenance are retained in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
-[SOURCE_MANIFEST.json](SOURCE_MANIFEST.json). This is not an official NVIDIA release.
-Model weights and external dependencies remain subject to their respective terms.
+Nano requires a separate compatible environment; see the [backend notes](docs/backbone_differences.md).
