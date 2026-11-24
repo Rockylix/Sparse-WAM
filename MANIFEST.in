@@ -1,0 +1,18 @@
+include README.md LICENSE THIRD_PARTY_NOTICES.md SOURCE_MANIFEST.json
+include pyproject.toml uv.lock .python-version CONTRIBUTING.md
+graft src/sparse_wam
+graft vendor
+graft tools
+graft configs
+graft tests
+graft docs
+graft examples
+graft .github
+prune outputs
+prune checkpoints
+prune experiments
+prune build
+prune dist
+prune .venv
+prune .git
+global-exclude __pycache__ *.py[cod] .DS_Store .env .env.*

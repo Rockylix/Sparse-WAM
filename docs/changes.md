@@ -29,5 +29,19 @@
     做了去除文档字符串并归一化命名后的 AST 比较，计算结构与变更前一致。
     此次没有重跑 GPU 测速；README 中延迟仍引用此前已记录的测量。
 
+15. Edge 开源交付完善（2026-11-24）：明确完整源码 editable 安装和主支持平台，补充
+    `examples/infer_edge.py`、Python API/输入输出文档、贡献指南、源码发行包内容检查
+    与 CPU CI。Nano 保留独立环境要求和历史说明，不新增一键环境或实机验收承诺。
+    `create_service` 的 checkpoint 优先级修正为显式参数 > native JSON > 骨干默认值；
+    无效模式、非对象 JSON 和不兼容采样配置提前报错。可选 OpenPI transport 在加载
+    模型前检查，服务 metadata 记录实际选择的 checkpoint。
+    benchmark/示例增加 `reproduction` 元数据：代码版本/commit/dirty、实现文件摘要、
+    独立来源 manifest 摘要、调用参数、native JSON 与输入文件哈希；Git 信息不可用时
+    保持未知。实现摘要不替代 vendor 来源校验。
+    归档 2026-11-16 两份已有 GB10 Edge eager 报告和本机说明，保留测量值及原始文件
+    SHA256，明确代码 commit 未知；历史 RTX 4090 原始 JSON 未随此 checkout 提供。
+    不改变评分、Core80/Stable104、CFG 调度、packing、velocity cache 或模型数值算术。
+    本轮实际测试与模型验收以 [验证记录](validation.md) 及其独立证据为准。
+
 `tools/check_sources.py` 用来源 SHA256 与已登记修改后的 SHA256 检查所有复制文件。
 新核心代码的派生来源也在 manifest 中记录。原提交历史、远端、模型权重与实验原始数据未复制。

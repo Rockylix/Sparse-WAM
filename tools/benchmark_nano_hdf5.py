@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 import time
 
@@ -20,6 +19,7 @@ import torch
 
 from sparse_wam.benchmark_execution import ReplayCounter
 from sparse_wam.config import SparseWAMConfig
+from sparse_wam.reproducibility import collect_run_metadata
 from sparse_wam.runtime import SparseWAMRunner, activate_runtime, normalize_caption
 
 
@@ -102,6 +102,9 @@ def main():
     native["vlm_config"]["tokenizer"]["pretrained_model_name"] = str(args.tokenizer_path.resolve())
     config_path = args.output_dir / "native_config.json"
     config_path.write_text(json.dumps(payload, indent=2) + "\n")
+    reproduction = collect_run_metadata(
+        root=root, native_config=config_path, input_files={"dataset_config": args.dataset_config},
+    )
 
     class LocalArgs(ActionServerArgs):
         def build_setup_overrides(self):
@@ -161,8 +164,9 @@ def main():
         caption=batch[model.input_caption_key], config=config.to_dict(),
         runtime=str(cosmos_framework.__file__), python=sys.executable, torch=torch.__version__,
         gpu=torch.cuda.get_device_name(), argv=sys.argv,
-        source_head=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
-        source_status=subprocess.check_output(["git", "status", "--short"], cwd=root, text=True),
+        source_head=reproduction["source"]["git_commit"],
+        source_status=reproduction["source"]["git_status"],
+        reproduction=reproduction,
         timing_scope="synchronized native generate_samples_from_batch; input clone/HDF preprocessing and runner validation outside primary clock; no VAE decode; warm instruction cache",
         offload={k: os.environ.get(k) for k in ("COSMOS3_REASONER_OFFLOAD", "COSMOS3_REASONER_KVCACHE", "COSMOS3_LAYER_OFFLOAD")},
         rows=rows, paired_errors=errors,

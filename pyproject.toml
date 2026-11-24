@@ -1,17 +1,24 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "sparse-wam-cosmos3"
 version = "0.1.0"
 description = "Action-guided sparse imagination for Cosmos3 Edge and Nano policies"
+readme = "README.md"
 requires-python = ">=3.12"
-license = {text = "OpenMDW-1.1"}
+license = "LicenseRef-OpenMDW-1.1"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 dependencies = ["torch>=2.5"]
 
+[project.urls]
+Repository = "https://github.com/Rockylix/Sparse-WAM"
+Documentation = "https://github.com/Rockylix/Sparse-WAM#readme"
+Issues = "https://github.com/Rockylix/Sparse-WAM/issues"
+
 [project.optional-dependencies]
-test = ["pytest>=8"]
+test = ["pytest>=8", "numpy>=2,<2.3", "pillow>=12.2"]
 edge = [
   "torch==2.14.1",
   "torchvision==0.29.1",
@@ -48,7 +55,7 @@ edge = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.12"]
+dev = ["pytest>=8", "ruff>=0.12", "numpy>=2,<2.3", "pillow>=12.2"]
 
 [tool.uv]
 required-version = ">=0.11.3"

@@ -17,6 +17,7 @@ import torch
 from sparse_wam.benchmark_execution import ReplayCounter
 from sparse_wam.config import SparseWAMConfig
 from sparse_wam.controller import SparseWAMController
+from sparse_wam.reproducibility import collect_run_metadata
 from sparse_wam.service import create_service
 
 
@@ -33,6 +34,9 @@ def main():
         p.error("positive warmup and repeats required")
     if args.output.exists():
         p.error("output already exists")
+    reproduction = collect_run_metadata(
+        native_config=args.native_config, input_files={"observation": args.observation},
+    )
     with np.load(args.observation, allow_pickle=False) as data:
         obs = {k: data[k].item() if data[k].ndim == 0 else data[k].copy() for k in data.files}
     config = SparseWAMConfig("nano", "compile-graph")
@@ -101,7 +105,7 @@ def main():
                     infer_s=time.perf_counter() - start,
                     generation_s=capture["generation_s"],
                     graph_replays=graph.count,
-                    summary=runner.last_summary,
+                    summary={**runner.last_summary, "checkpoint": args.checkpoint_path},
                     prefill_calls=prefill[0],
                 )
                 rows.append(row)
@@ -129,7 +133,8 @@ def main():
             if not all(equal.values()):
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_text(
-                    json.dumps(dict(status="regression_failed", checks=checks, rows=rows), indent=2)
+                    json.dumps(dict(status="regression_failed", checks=checks, rows=rows,
+                                    reproduction=reproduction), indent=2)
                 )
                 raise RuntimeError(f"Packing changed output: {equal}")
             assert prefill[0] == 2, "Instruction KV cache unexpectedly missed"
@@ -152,6 +157,7 @@ def main():
             config=config.to_dict(),
             checkpoint=args.checkpoint_path,
             observation=str(args.observation),
+            reproduction=reproduction,
             note="Diagnostic nested synchronization; same model, paired two input/seed variants; no task success claim",
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)

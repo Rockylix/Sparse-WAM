@@ -118,6 +118,11 @@ def test_smoke_validates_warmup_and_measured_inferences_and_records_provenance(t
     assert report["provenance"]["checkpoint_revision"] == "checkpoint-sha"
     assert report["provenance"]["observation"]["resolved_revision"] == "input-sha"
     assert report["action_mse_by_pair"] == [0.25]
+    assert report["reproduction"]["input_files"]["observation"]["sha256"] == hashlib.sha256(
+        (tmp_path / "observation.npz").read_bytes()
+    ).hexdigest()
+    assert report["reproduction"]["source"]["version"]
+    assert report["effective_runs"]["sparse"]["checkpoint"] == str(checkpoint)
 
 
 @pytest.mark.parametrize("failure_stage", ["input", "model"])
@@ -140,6 +145,7 @@ def test_failed_smoke_replaces_old_passed_report(tmp_path, monkeypatch, failure_
     assert report["smoke"]["passed"] is False
     assert report["smoke"]["status"] == "failed"
     assert report["smoke"]["error"].startswith(f"{error_type.__name__}: ")
+    assert report["reproduction"]["source"]["version"]
     assert datetime.fromisoformat(report["started_at_utc"]).utcoffset() == timedelta(0)
 
 

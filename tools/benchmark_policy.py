@@ -21,6 +21,7 @@ import torch
 
 from sparse_wam.config import SparseWAMConfig
 from sparse_wam.benchmark_execution import PairedExecution, ReplayCounter
+from sparse_wam.reproducibility import collect_run_metadata
 from sparse_wam.service import create_service
 
 
@@ -113,7 +114,7 @@ def environment_versions():
     }
 
 
-def run_benchmark(args, started_at):
+def run_benchmark(args, started_at, reproduction=None):
     provenance = collect_provenance(args.checkpoint_path, args.observation)
     with np.load(args.observation, allow_pickle=False) as source:
         observation = {
@@ -153,7 +154,7 @@ def run_benchmark(args, started_at):
             if round_id >= args.warmup:
                 timings[mode].append(elapsed)
                 replays[mode].append(counter.count)
-            summaries[mode] = runner.last_summary
+            summaries[mode] = {**runner.last_summary, "checkpoint": args.checkpoint_path}
             action_shapes[mode] = list(np.asarray(outputs[mode]["action"]).shape)
             if args.smoke:
                 validate_smoke_result(mode, outputs[mode], summaries[mode])
@@ -197,6 +198,7 @@ def run_benchmark(args, started_at):
         "action_shapes": action_shapes,
         "environment": environment_versions(),
         "provenance": provenance,
+        "reproduction": reproduction,
         "note": "Nano dense is native eager even when its sparse adapter is compiled; no task success claim.",
     }
     if args.smoke:
@@ -217,12 +219,18 @@ def main(argv=None):
         write_report(args.output, {
             "started_at_utc": started_at, "smoke": {"passed": False, "status": "running"},
         })
+    reproduction = None
     try:
-        run_benchmark(args, started_at)
+        reproduction = collect_run_metadata(
+            argv=sys.argv if argv is None else [sys.argv[0], *argv],
+            native_config=args.native_config, input_files={"observation": args.observation},
+        )
+        run_benchmark(args, started_at, reproduction)
     except Exception as exc:
         if args.smoke:
             write_report(args.output, {
                 "started_at_utc": started_at,
+                "reproduction": reproduction,
                 "smoke": {"passed": False, "status": "failed", "error": f"{type(exc).__name__}: {exc}"},
             })
         raise

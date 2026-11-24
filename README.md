@@ -7,8 +7,8 @@ without training or changing model weights. It selects task-relevant tokens from
 action attention, executes the Transformer on compact token sequences, and uses
 a first-step velocity cache to update unselected regions.
 
-[Method](docs/method.md) · [Quick start](#quick-start) ·
-[Benchmarks](#benchmarks) · [Validation](docs/validation.md)
+[Method](docs/method.md) · [Quick start](#quick-start) · [Python API](docs/api.md) ·
+[Benchmarks](#benchmarks) · [Validation](docs/validation.md) · [Contributing](CONTRIBUTING.md)
 
 ## Overview
 
@@ -61,7 +61,7 @@ in [Method](docs/method.md).
 
 FastWAM-Joint values refer to the two-camera LIBERO configuration
 (`configs/model/fastwam_joint.yaml`, `configs/data/libero_2cam.yaml`, and
-`configs/sim_libero.yaml` in its repository). K31 is the current Qi checkout's
+`configs/sim_libero.yaml` in its repository). K31 is the documented FastWAM-Joint
 default; K56 is a separate available preset, not an additional default.
 With guidance 1, it uses one forward per denoising step and caches the observation
 K/V after step 0. Its action-only path advances packed sparse video states;
@@ -76,7 +76,7 @@ is documented here for comparison; it is not a `--backbone` option in this CLI.
 
 ## Quick start
 
-### 1. Environment
+### 1. Install the complete source checkout
 
 Clone the complete source checkout:
 
@@ -85,7 +85,8 @@ git clone https://github.com/Rockylix/Sparse-WAM.git
 cd Sparse-WAM
 ```
 
-The commands below target RTX 4090 on Linux x86_64 with a CUDA 13-compatible
+**Edge is the primary supported installation and reproduction path.** The commands
+below target RTX 4090 on Linux x86_64 with a CUDA 13-compatible
 NVIDIA driver. The project environment is managed by
 [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
@@ -97,9 +98,13 @@ uv run --locked --extra edge python -m sparse_wam config --backbone edge
 `.python-version` selects Python 3.13. The Linux x86_64 lock pins PyTorch
 2.14.1+cu130, torchvision 0.29.1+cu130 and cuDNN 9.24.0.43. Keep `--extra edge`
 on subsequent `uv run` commands to select the inference dependencies.
+`uv sync` installs this project in editable mode; keep this checkout in place.
 Development tools are installed by the default `dev` group. The recorded RTX
 4090 results use the earlier PyTorch 2.10.0+cu130 environment; the current locked
-stack still requires a checkpoint-level smoke run on RTX 4090.
+stack still requires a checkpoint-level smoke run on RTX 4090. A historical
+GB10/ARM64 Edge eager smoke with the newer versions passed; its
+[archived evidence](docs/evidence/README.md) does not establish ARM64 support
+for the Linux x86_64 lock or validate compile/Graph execution.
 
 The pinned runtime requires Python >=3.12. Its older full training dependency
 groups pin cuDNN 9.15, while its current attention backend requires >=9.22;
@@ -108,8 +113,14 @@ defaults `COSMOS_TRAINING=0` before loading the framework. It uses native cuDNN
 attention without FlashAttention, NATTEN or Transformer Engine.
 
 Keep the complete source checkout available: a standalone wheel does not bundle
-the vendored runtimes. Nano requires its matching environment in a separate
-process; the root `edge` extra covers Edge offline inference.
+the vendored runtimes. In an already prepared compatible backend environment,
+install this checkout with `python -m pip install -e . --no-deps`.
+
+**Nano environment note.** Nano needs its matching CUDA/PyTorch/framework
+dependencies, checkpoint, VAE and tokenizer in a separate environment and process.
+The root `edge` extra does not install or validate a Nano environment; this release
+does not offer a one-command Nano setup or acceptance workflow. The adapter and
+historical Nano records remain available. See [backend differences](docs/backbone_differences.md).
 
 ### 2. Model assets
 
@@ -129,7 +140,36 @@ uv run --locked --extra edge python -m sparse_wam config --backbone edge --execu
 uv run --locked --extra edge python -m sparse_wam config --backbone nano --execution compile-graph
 ```
 
-### 3. Start a policy server
+### 3. Run one recorded observation offline
+
+Prepare the official Edge DROID checkpoint, native VAE and a recorded observation,
+then run the [offline example](examples/infer_edge.py):
+
+```bash
+uv run --locked --extra edge python tools/prepare_smoke.py
+uv run --locked --extra edge python examples/infer_edge.py \
+  --checkpoint-path checkpoints/edge \
+  --observation outputs/smoke/observation.npz \
+  --native-config configs/smoke_edge.json \
+  --output outputs/example/action.npz
+```
+
+This loads a model and produces an `action` array in the output NPZ, plus a JSON
+summary beside it. It does not connect to a robot. The default is Sparse eager;
+`--mode dense --execution eager` selects the dense control. The example explicitly
+uses the offline fixture config, which disables auxiliary guardrail models and
+video decoding. It does not change service defaults.
+
+The preparation tool may require `HF_TOKEN` access to the model repositories.
+It records immutable model and sample revisions. Policy weights stay under
+`checkpoints/`, the native VAE uses the Hugging Face cache (`HF_HOME` is respected),
+and generated observations and reports stay under `outputs/`. These directories
+are excluded from Git. No weights or dataset samples are bundled in this release.
+
+See [Python API and observation format](docs/api.md) to use an existing observation
+or integrate `service.infer(...)` into another application.
+
+### Optional: start a policy server
 
 WebSocket serving additionally requires a compatible OpenPI transport and any
 auxiliary models enabled in the native JSON config. The minimal `edge` extra
@@ -145,34 +185,25 @@ python -m sparse_wam serve \
   --host 127.0.0.1 --port 8000 --seed 0
 ```
 
-For Nano, set `--backbone nano` and use its checkpoint/environment.
-Nano automatically enables Reasoner offload and instruction KV caching; GEN
-weights remain on the GPU. Do not combine this with per-layer model offload.
+The WebSocket transport is an external OpenPI component; it is not a bundled
+HTTP API or a dependency of offline inference. Use a known-compatible OpenPI
+backend environment for this optional entry point.
 
 To run the dense control, explicitly set `--mode dense --execution eager`.
 The default execution backend is eager. CUDA Graphs are managed per compiled
 layer/function, not as one graph around the complete sampling loop.
-Nano packing reuse can be disabled with `--no-nano-packing-cache`.
 
 ### Smoke test (Edge)
 
-Prepare the official checkpoint and one recorded NVIDIA DROID observation:
+After preparing the assets above, run the paired acceptance smoke:
 
 ```bash
-uv run --locked --extra edge python tools/prepare_smoke.py
 uv run --locked --extra edge python tools/benchmark_policy.py \
   --backbone edge --checkpoint-path checkpoints/edge \
   --observation outputs/smoke/observation.npz \
   --native-config configs/smoke_edge.json --smoke \
   --output outputs/smoke/edge.json
 ```
-
-The preparation tool records the resolved model and sample revisions in
-provenance sidecars. The Edge checkpoint stays under `checkpoints/`; its pinned
-native Wan2.2 VAE uses the standard Hugging Face cache (`HF_HOME` is respected).
-Samples, logs and reports stay under `outputs/`. Both project directories are
-ignored by Git. Download access may
-require `HF_TOKEN` with access to the NVIDIA model repositories.
 
 `--smoke` runs eager inference with one warmup pair and one measured pair,
 using the same input and seed for Dense/Sparse in each pair. It checks finite
@@ -206,6 +237,11 @@ each speedup compares that backend against its own dense control.
 Cold compilation/prefill, external input preprocessing, RPC and future-video
 decoding are excluded. These timings do not establish closed-loop task success.
 See [validation details](docs/validation.md) for configurations and output checks.
+The original local JSON reports for the historical 4090 rows are not included
+in this checkout. These rows retain the recorded historical measurements; they
+are not results rerun against the current release. The separately
+[archived GB10 smoke](docs/evidence/README.md) is a functional check, not a
+replacement benchmark or a closed-loop evaluation.
 
 ### Paired observation benchmark
 
@@ -240,7 +276,7 @@ Run either tool with `--help` for required inputs and options.
 
 ```bash
 uv run --locked --extra edge pytest -q
-uv run --locked --extra edge ruff check src tests tools
+uv run --locked --extra edge ruff check src tests tools examples
 uv run --locked --extra edge python tools/check_sources.py
 ```
 
@@ -254,12 +290,14 @@ closed-loop evaluation.
 | `src/sparse_wam/backends/` | Edge and Nano execution adapters |
 | `configs/` | Configuration summaries and native smoke overrides |
 | `tools/` | Benchmarks and source verification |
+| `examples/` | Offline Edge observation inference |
 | `tests/` | Unit and numerical tests |
 | `vendor/` | Pinned Cosmos runtimes |
-| `docs/` | Method, backend details and validation records |
+| `docs/` | API, method, backend details and validation evidence |
 
-Python entry points are `SparseWAMConfig` in `sparse_wam.config` and
-`SparseWAMRunner` in `sparse_wam.runtime`. `configs/edge.json` and
+Python entry points are `SparseWAMConfig` in `sparse_wam.config`,
+`SparseWAMRunner` in `sparse_wam.runtime`, and `create_service` in
+`sparse_wam.service`. `configs/edge.json` and
 `configs/nano.json` are generated configuration summaries. `configs/smoke_edge.json`
 provides native runtime overrides for the offline smoke test.
 

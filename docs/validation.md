@@ -1,5 +1,23 @@
 # 本地验证记录
 
+## 当前发布的验证范围
+
+Edge 是当前主要安装和复现入口，根目录锁文件正式面向 Linux x86_64。
+以下区分代码支持范围、已有历史验证和可下载的证据；归档已有文件不等于
+重新对当前提交运行实验。Python 接口和数据合同见 [API 文档](api.md)。
+
+| 时间 / 硬件 | 路径与环境 | 已有验证 | 当前发布的证据与限制 |
+|---|---|---|---|
+| 2026-10-06 / RTX 4090 | Edge、Nano；PyTorch 2.10.0+cu130；Dense eager / Sparse compile+Graph | 下文单 chunk、计时边界及 Nano packing 记录 | 保留历史文档；原始 JSON/log 未包含在当前 checkout，不能当作当前版本复测 |
+| 2026-11-16 / NVIDIA GB10、Linux ARM64 | Edge eager；PyTorch 2.14.1+cu130、cuDNN 9.24.0.43 | 两次运行各一组预热和一组测量，有限动作及真实稀疏执行计数通过 | [脱敏 JSON 与原始文件哈希](evidence/README.md)；未记录代码 commit，未验证 Nano/compile/Graph；不证明 x86_64 锁支持 ARM64 |
+| 当前锁 / Linux x86_64、RTX 4090 | Edge；PyTorch 2.14.1+cu130 | 已提供安装、离线示例和 smoke 入口 | 尚无对应锁环境的 RTX 4090 真实 checkpoint 验收记录 |
+| Nano 环境 | 独立依赖环境、checkpoint/VAE/tokenizer | 保留适配器与历史实验说明 | 本次不提供一键环境或新的实机验收；不能直接使用 root `edge` extra 声称复现 Nano |
+| 闭环任务评估 | 机械臂或仿真器 | 本仓库记录未建立闭环成功率 | 离线 MSE、有限值和单 chunk 延迟不替代完整论文任务协议 |
+
+`outputs/` 是本地工作目录，被 Git 忽略。下文历史路径是当时的产物位置，
+不是可以从仓库直接下载的附件。论文全部实验复现、不同 instruction 的 GPU
+cache 失效、当前环境的多尺寸推理等仍以对应验证结果为准。
+
 ## uv 环境与 Edge 冒烟入口
 
 根项目提供面向 Linux x86_64 / RTX 4090 的 uv 环境，默认 Python 3.13。
@@ -14,7 +32,9 @@ Policy 位于 `checkpoints/edge`，原生 VAE 使用标准 Hugging Face 缓存�
 提交前软件检查：86 项测试、ruff、锁文件校验、1357 个来源文件校验、五个 CLI 帮助入口、源码包及 wheel 构建通过。
 测试包含自定义样本输出路径、来源哈希校验和失败报告替换旧成功报告。
 
-下文已有 RTX 4090 实测使用 PyTorch 2.10.0+cu130。当前新锁定环境仍需在 RTX 4090 上完成真实 checkpoint 冒烟；本节记录软件检查和工具能力，不新增 GPU 性能或闭环成功率结论。
+下文已有 RTX 4090 实测使用 PyTorch 2.10.0+cu130。当前新锁定环境仍需在 RTX 4090 上完成真实 checkpoint 冒烟。
+2026-11-16 的 GB10 Edge eager 冒烟使用较新版本并已归档，但设备、架构不同，不能替代这项验收。
+本节软件检查数量是对应历史提交前记录，不自动代表以后每次发布的检查结果。
 
 ## 首次整理记录（2026-10-01）
 
@@ -100,7 +120,7 @@ Nano 日志记录 cond/uncond 各一次 UND prefill，随后卸载 UND/bridge；
 复现：在本仓库，沿用原有 observation/native JSON 和本地 checkpoint，
 运行 `tools/benchmark_policy.py --backbone edge` 或 `nano`，
 加上 `--execution compile-graph --dense-eager --warmup 3 --repeats 5 --seed 0`。
-设置 `PYTHONPATH=src`、`LD_LIBRARY_PATH=`、`HF_HOME=/root/cosmos3/cosmos/checkpoints/hf_home`，
+设置 `PYTHONPATH=src`、`LD_LIBRARY_PATH=`、`HF_HOME=<HF_CACHE>`，
 以及 `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 OMP_NUM_THREADS=4`。
 Nano 另设 `COSMOS3_REASONER_OFFLOAD=1 COSMOS3_REASONER_KVCACHE=1 COSMOS3_POLICY_REASONER_CACHE=1 COSMOS3_LAYER_OFFLOAD=0`。
 
@@ -170,8 +190,8 @@ generation 与 infer 分别同步计时，后者含前后处理；不解码视�
 模型来自本仓库 `vendor/nano/cosmos_framework`，HDF reader 和 batch collator 来自 Piper。
 本轮继续使用此前用户批准的宿主机 Nano 环境；不代表真机部署容器性能。
 
-- 权重：`/root/piper-cosmos3-quant/cosmos_battery/20k`。
-- 数据：`/root/piper-cosmos3/hdf_data/perfect/episode_10.hdf5`，dataset sample 64 / frame 64。
+- 权重：`<PIPER_CHECKPOINT_ROOT>/cosmos_battery/20k`。
+- 数据：`<PIPER_DATA_ROOT>/perfect/episode_10.hdf5`，dataset sample 64 / frame 64。
 - 三视角 concat_view，Piper14 state/action，指令 `Assemble the mouse's battery.`；caption 显式 JSON 序列化。
 - 相同完整 batch、seed=0、guidance=3、4 steps、shift=5；输入副本在主计时区外建立并校验哈希。
 - 3 轮预热、20 轮交替 Dense/Sparse；Dense eager，Sparse compile+CUDA Graph。
@@ -208,3 +228,15 @@ Sparse 对本轮 Dense 的完整返回 tensor 误差（不是物理关节角误�
 复现使用该文件的 `argv`，并更换 `--output-dir` 防止覆盖；环境变量与前述 Nano 测试一致。
 `v1/v2` 为测试入口的 VAE 后缀与标量哈希错误尝试，未纳入任何有效样本。
 现有 51 项 CPU 单元测试、标量/bfloat16 输入哈希检查、ruff、vendor source 校验均通过。
+
+## 2026-11-16：GB10 / Edge eager 历史记录归档
+
+已有本机 `edge.json` 与 `edge_manual.json` 均标记 smoke passed，记录实际模型与样本
+revision、环境、有限 `[32, 8]` 动作和逐请求执行检查。每次 Sparse 完成 8 个 forward、
+224 个 block 调用、7 次 pack/restore 和 4 次 velocity 更新；17×20 网格每帧保留 184。
+两次报告的峰值 allocated/reserved 均为约 8.242/8.461 GiB。
+
+2026-11-24 将这两份既有报告和当时的本机说明脱敏归档到 [evidence](evidence/README.md)，
+记录原文件和归档文件的 SHA256。原报告没有记录 Sparse-WAM commit，未据当前 HEAD 补填。
+这不是新增实验；单组测量不作为稳定加速比或成功率结论。ARM64 cuSPARSELt wheel
+标签问题等当时环境限制见归档说明，当前发布仍以 Linux x86_64 的 Edge 安装路径为主。

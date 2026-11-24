@@ -1228,11 +1228,15 @@ edge = [
     { name = "websockets" },
 ]
 test = [
+    { name = "numpy" },
+    { name = "pillow" },
     { name = "pytest" },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "numpy" },
+    { name = "pillow" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -1254,10 +1258,12 @@ requires-dist = [
     { name = "loguru", marker = "extra == 'edge'" },
     { name = "msgpack", marker = "extra == 'edge'" },
     { name = "numpy", marker = "extra == 'edge'", specifier = ">=2,<2.3" },
+    { name = "numpy", marker = "extra == 'test'", specifier = ">=2,<2.3" },
     { name = "nvidia-ml-py", marker = "extra == 'edge'" },
     { name = "obstore", marker = "extra == 'edge'" },
     { name = "omegaconf", marker = "extra == 'edge'" },
     { name = "pillow", marker = "extra == 'edge'", specifier = ">=12.2" },
+    { name = "pillow", marker = "extra == 'test'", specifier = ">=12.2" },
     { name = "pydantic", marker = "extra == 'edge'", specifier = ">=2" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8" },
     { name = "qwen-vl-utils", marker = "extra == 'edge'" },
@@ -1278,6 +1284,8 @@ provides-extras = ["test", "edge"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "numpy", specifier = ">=2,<2.3" },
+    { name = "pillow", specifier = ">=12.2" },
     { name = "pytest", specifier = ">=8" },
     { name = "ruff", specifier = ">=0.12" },
 ]

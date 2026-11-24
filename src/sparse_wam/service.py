@@ -1,9 +1,15 @@
 """Shared RoboLab/openpi service entry; native preprocessing and action semantics remain intact."""
 
+import importlib
 import json
 from pathlib import Path
 
 from .runtime import SparseWAMRunner, activate_runtime
+
+
+def _native_service_module(backbone):
+    activate_runtime(backbone)
+    return importlib.import_module("cosmos_framework.scripts.action_policy_server_robolab")
 
 
 def create_service(
@@ -17,14 +23,33 @@ def create_service(
     mode="sparse",
     native_config=None,
 ):
-    activate_runtime(config.backbone)
-    from cosmos_framework.scripts.action_policy_server_robolab import RobolabPolicyService, RobolabServerArgs
+    """Build an offline policy service; the optional OpenPI transport is not required.
+
+    Checkpoint precedence is explicit argument, native JSON, then backbone default.
+    Native settings must retain the fixed Sparse-WAM denoising protocol.
+    """
+    if mode not in ("dense", "sparse"):
+        raise ValueError("mode must be dense or sparse")
 
     overrides = {}
     if native_config is not None:
         overrides = json.loads(Path(native_config).read_text(encoding="utf-8"))
+        if not isinstance(overrides, dict):
+            raise ValueError("native_config must contain a JSON object")
+    if overrides.get("sampler", "unipc") != "unipc":
+        raise ValueError("Sparse-WAM requires sampler='unipc'")
+    config.validate_generation({
+        key: overrides[key]
+        for key in ("guidance", "num_steps", "shift", "guidance_interval", "normalize_cfg")
+        if key in overrides
+    })
+    selected_checkpoint = (
+        checkpoint if checkpoint is not None else overrides.get("checkpoint_path", config.checkpoint)
+    )
+    if not isinstance(selected_checkpoint, str) or not selected_checkpoint.strip():
+        raise ValueError("checkpoint must be a nonempty path or model identifier")
     overrides.update(
-        checkpoint_path=checkpoint or config.checkpoint,
+        checkpoint_path=selected_checkpoint,
         host=host,
         port=port,
         seed=seed,
@@ -35,7 +60,8 @@ def create_service(
     )
     if config.backbone == "edge":
         overrides["format_prompt_as_json"] = True
-    args = RobolabServerArgs.model_validate(overrides)
+    native = _native_service_module(config.backbone)
+    args = native.RobolabServerArgs.model_validate(overrides)
     for field in (
         "guidance_interval",
         "hidden_state_capture_dir",
@@ -45,7 +71,7 @@ def create_service(
         if getattr(args, field, None) is not None:
             raise ValueError(f"{field} cannot be combined with the Sparse-WAM service")
 
-    class PolicyService(RobolabPolicyService):
+    class PolicyService(native.RobolabPolicyService):
         def _build_setup_args(self, settings):
             setup = super()._build_setup_args(settings)
             updates = {
@@ -80,11 +106,30 @@ def create_service(
 
 
 def serve(config, **kwargs):
+    """Start the OpenPI WebSocket transport after checking it is installed."""
+    native = _native_service_module(config.backbone)
+    try:
+        websocket_server = native._load_openpi_websocket_policy_server()
+    except ModuleNotFoundError as exc:
+        # These transport releases are recorded in vendor/edge/uv.lock.
+        raise ModuleNotFoundError(
+            "Sparse-WAM WebSocket serving requires a compatible OpenPI transport. "
+            "From the source checkout, install it into the Edge environment with "
+            "`uv pip install --python .venv/bin/python openpi-server==0.1.0 openpi-client==0.1.2`, "
+            "then use "
+            "`.venv/bin/python -m sparse_wam serve ...`. An existing compatible full OpenPI "
+            "installation is also supported. The root edge extra only covers offline inference; "
+            "create_service(...).infer(...) does not require this transport. "
+            f"Missing dependency: {exc.name or 'OpenPI transport'}."
+        ) from exc
     service, args = create_service(config, **kwargs)
-    from cosmos_framework.scripts.action_policy_server_robolab import _load_openpi_websocket_policy_server
 
-    metadata = {"method": "Sparse-WAM", **config.run_metadata(kwargs.get("mode", "sparse"))}
+    metadata = {
+        "method": "Sparse-WAM",
+        **config.run_metadata(kwargs.get("mode", "sparse")),
+        "checkpoint": args.checkpoint_path,
+    }
     print(json.dumps(metadata, ensure_ascii=False, indent=2), flush=True)
-    _load_openpi_websocket_policy_server()(
+    websocket_server(
         policy=service, host=args.host, port=int(args.port), metadata=metadata
     ).serve_forever()
