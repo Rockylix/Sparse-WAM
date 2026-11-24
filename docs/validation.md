@@ -1,273 +1,74 @@
-# 本地验证记录
+# RTX 4090 validation
 
-## 当前发布的验证范围
+Use this checklist with the [Edge installation guide](rtx4090.md) on Linux x86_64
+and an RTX 4090. It defines checks to run against your checkout and environment;
+it is not a record of completed target-device testing.
 
-Edge 是当前主要安装和复现入口，根目录锁文件正式面向 Linux x86_64。
-以下区分代码支持范围、已有历史验证和可下载的证据；归档已有文件不等于
-重新对当前提交运行实验。Python 接口和数据合同见 [API 文档](api.md)。
+## Software checks
 
-| 时间 / 硬件 | 路径与环境 | 已有验证 | 当前发布的证据与限制 |
-|---|---|---|---|
-| 2026-10-06 / RTX 4090 | Edge、Nano；PyTorch 2.10.0+cu130；Dense eager / Sparse compile+Graph | 下文单 chunk、计时边界及 Nano packing 记录 | 保留历史文档；原始 JSON/log 未包含在当前 checkout，不能当作当前版本复测 |
-| 2026-11-16 / NVIDIA GB10、Linux ARM64 | Edge eager；PyTorch 2.14.1+cu130、cuDNN 9.24.0.43 | 两次运行各一组预热和一组测量，有限动作及真实稀疏执行计数通过 | [脱敏 JSON 与原始文件哈希](evidence/README.md)；未记录代码 commit，未验证 Nano/compile/Graph；不证明 x86_64 锁支持 ARM64 |
-| 2026-11-24 / NVIDIA GB10、Linux ARM64 | Edge eager；PyTorch 2.14.1+cu130、cuDNN 9.24.0.43 | 干净代码提交 `168f041` 上的 paired smoke 和独立离线示例均通过 | [本轮报告及独立 manifest](evidence/README.md#2026-11-24-release-validation)；完整 commit、实现摘要、配置与输入 hash 可核查；范围限 GB10 Edge eager |
-| 当前锁 / Linux x86_64、RTX 4090 | Edge；PyTorch 2.14.1+cu130 | 已提供安装、离线示例和 smoke 入口 | 尚无对应锁环境的 RTX 4090 真实 checkpoint 验收记录 |
-| Nano 环境 | 独立依赖环境、checkpoint/VAE/tokenizer | 保留适配器与历史实验说明 | 本次不提供一键环境或新的实机验收；不能直接使用 root `edge` extra 声称复现 Nano |
-| 闭环任务评估 | 机械臂或仿真器 | 本仓库记录未建立闭环成功率 | 离线 MSE、有限值和单 chunk 延迟不替代完整论文任务协议 |
+From the repository root after installing the Edge environment:
 
-`outputs/` 是本地工作目录，被 Git 忽略。下文历史路径是当时的产物位置，
-不是可以从仓库直接下载的附件。论文全部实验复现、不同 instruction 的 GPU
-cache 失效、当前环境的多尺寸推理等仍以对应验证结果为准。
+```bash
+uv run --locked --extra edge pytest -q
+uv run --locked --extra edge ruff check src tests tools examples
+uv run --locked --extra edge python tools/check_sources.py
+uv run --locked --extra edge python -m sparse_wam config --backbone edge
+uv run --locked --extra edge python examples/infer_edge.py --help
+uv build --out-dir dist
+uv run --locked --extra edge python tools/check_distribution.py --dist dist
+```
 
-## 2026-11-24：本轮 Edge 开源交付验收
+All commands must exit successfully. Source verification checks the pinned vendor
+hashes and registered modifications. Distribution checks exercise the unpacked
+source package as well as the wheel's contents. These software checks do not
+replace inference with the real checkpoint.
 
-软件提交：`168f04175487c9361fe7cd2de4b102164461de08`。本轮 CPU 单元测试 **121 项通过**；
-1357 个来源文件及 1 项登记修改校验通过，源码发行包解包后同样通过 **121 项测试**。
-这些软件检查与下面的真实模型验证各有独立范围。
+## Model smoke
 
-云端 [GitHub Actions 45387620408](https://github.com/Rockylix/Sparse-WAM/actions/runs/45387620408)
-全部步骤成功：Linux x86_64 / Python 3.13 / CPU PyTorch 环境中的单元测试、来源校验、
-发行包构建和解包后的测试均通过。该 CI 检查软件发行完整性，不加载 GPU 模型。
+After [preparing the model assets and observation](rtx4090.md#model-assets-and-recorded-input):
 
-最终 paired smoke 在干净工作树上执行，报告记录 `git_dirty=false` 和实现 SHA256
-`5ea9d51e6fdd22b7807769ee5d4397d1489c95fee0200e6223c832b876c2c7dc`。
-设备为 NVIDIA GB10（SM 12.1）、Linux ARM64；Python 3.13.9、PyTorch 2.14.1+cu130、
-cuDNN 9.24.0.43。使用固定 revision 的 Edge DROID checkpoint、原生 VAE 和录制样本，
-报告同时记录命令参数、native JSON 与 observation SHA256。
+```bash
+uv run --locked --extra edge python tools/benchmark_policy.py \
+  --backbone edge --checkpoint-path checkpoints/edge \
+  --observation outputs/smoke/observation.npz \
+  --native-config configs/smoke_edge.json --smoke \
+  --output outputs/smoke/edge.json
+```
 
-一组 Dense/Sparse 预热和一组测量的四次请求全部通过；动作均为有限 `[32, 8]`。
-Sparse 执行 1 dense / 7 sparse、224 个 block 调用、7 次 pack/restore 和 4 次 velocity
-更新；网格 17×20，每帧保留 Core80+Stable104=184，GEN 从 3093 缩至 1845。
-单组完整 policy 时间为 Dense 2.5248 s、Sparse 1.6376 s，action MSE 0.017466；峰值
-allocated/reserved 约 8.242/8.461 GiB。这是功能冒烟，不对速度分布或动作质量设门槛。
+The tool runs one warmup pair and one measured pair. Dense and Sparse share the
+same input and seed within each pair. Require a zero exit status and
+`smoke.passed=true`; a failed or incomplete report is not a successful run.
 
-同一干净代码提交上运行 `examples/infer_edge.py`，得到 `[32, 8]` action NPZ 和对应 JSON
-摘要。仅 JSON 摘要随本次发布归档，动作二进制保留在本地输出目录。
+| Check | Expected for the Edge DROID fixture |
+|---|---|
+| Device and assets | Report identifies the intended GPU, environment, checkpoint revision and observation hash |
+| Action output | Finite `[32, 8]` arrays in Dense and Sparse |
+| Dense execution | 8 dense forwards, 0 sparse forwards, 340 retained tokens per frame |
+| Sparse execution | 1 dense and 7 sparse forwards; 8 completed forwards and 224 block calls |
+| Sparse packing and updates | 7 pack/restore pairs, 4 velocity updates |
+| Token geometry | 17×20 spatial grid; Core80 + Stable104 = 184 retained future tokens per frame; GEN length 3093 → 1845 |
 
-[本轮脱敏证据与独立 manifest](evidence/README.md#2026-11-24-release-validation)
-保留 source/archived 哈希及测量值；不覆盖或回填 2026-11-16 的历史记录。
-后续证据和文档提交不改变被测实现摘要。本轮没有增加 RTX 4090、Nano、compile/Graph
-或闭环成功率结论；Linux x86_64 锁的正式目标范围保持不变。
+Inspect `effective_runs`, `action_shapes`, `smoke.checks`, `environment`, `provenance`
+and `reproduction` in the JSON report. The offline fixture disables video decoding
+and auxiliary guardrail models. No speedup or action-MSE threshold is imposed.
 
-## uv 环境与 Edge 冒烟入口
+## Further acceptance
 
-根项目提供面向 Linux x86_64 / RTX 4090 的 uv 环境，默认 Python 3.13。
-`uv.lock` 固定 PyTorch 2.14.1+cu130、torchvision 0.29.1+cu130 和 cuDNN 9.24.0.43。
-安装与运行命令见 README；保留 `--locked --extra edge` 以选择固定的 Edge 推理依赖。
-推理入口在导入框架前默认设置 `COSMOS_TRAINING=0`，vendor 快照保持不变。
+- Run the [offline example](rtx4090.md#offline-inference) and inspect the saved action
+  NPZ and JSON summary. Use different output paths to preserve earlier runs.
+- Before integrating a persistent service, exercise different observations and
+  instructions in successive requests. Check request-local mask/velocity updates,
+  native instruction-cache invalidation and recovery after a failed request.
+- Run [paired benchmarks](rtx4090.md#paired-benchmark) in eager first, then evaluate
+  compile and compile-graph on the target device. Record actual Graph replays and
+  compare output differences as well as latency; compilation need not be bitwise
+  identical to eager execution.
+- Keep the timing scope and controls explicit: full `service.infer` includes
+  preprocessing and action postprocessing; Dense eager versus compiled Sparse
+  measures sparsity and compilation together. Separate cold start from warm runs.
+- Closed-loop task success requires the corresponding robot or simulator protocol.
+  Finite outputs, action MSE and single-chunk latency do not establish that result.
 
-`tools/prepare_smoke.py` 下载固定 revision 的官方 DROID checkpoint、原生 WAN VAE 和录制样本，并记录来源。
-Policy 位于 `checkpoints/edge`，原生 VAE 使用标准 Hugging Face 缓存，输入与报告位于 `outputs/smoke`。
-`tools/benchmark_policy.py --smoke` 执行一组预热和一组测量，检查有限的 `[32, 8]` 动作及真实稀疏执行计数；失败时退出非零并写入失败报告。
-
-提交前软件检查：86 项测试、ruff、锁文件校验、1357 个来源文件校验、五个 CLI 帮助入口、源码包及 wheel 构建通过。
-测试包含自定义样本输出路径、来源哈希校验和失败报告替换旧成功报告。
-
-下文已有 RTX 4090 实测使用 PyTorch 2.10.0+cu130。当前新锁定环境仍需在 RTX 4090 上完成真实 checkpoint 冒烟。
-2026-11-16 的 GB10 Edge eager 冒烟使用较新版本并已归档，但设备、架构不同，不能替代这项验收。
-本节软件检查数量是对应历史提交前记录，不自动代表以后每次发布的检查结果。
-
-## 首次整理记录（2026-10-01）
-
-日期：2026-10-01。环境：Windows、Python 3.12.7、PyTorch 2.5.1+cpu，CUDA 不可用。
-
-本表记录首次本地整理时的检查。后续按用户指定，将该目录初始化为独立 Git 仓库并以 `Rockylix/Sparse-WAM` 为发布目标；不继承来源仓库历史。
-
-| 检查 | 实际结果 | 证明范围 |
-|---|---|---|
-| `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q` | 31 passed，3.85 秒 | 数学、CPU adapter 合同及请求生命周期 |
-| `python -m ruff check src tests tools` | 通过 | 新核心、测试与整理工具的静态 lint |
-| `python -m ruff format --check src tests tools --exclude layout.py` | 23 files already formatted | `layout.py` 保留来源文件原字节，不做格式重写 |
-| Python AST 解析 | 1230 个文件通过 | 包括 vendor；只证明语法可解析 |
-| `python tools/check_sources.py` | 1357 个来源文件、1 处登记修改全部匹配 | 固定快照与本地 Edge scorer 接线的来源完整性 |
-| Edge / Nano `config` CLI | 均成功 | 无需加载权重即可导出固定配置 |
-| `serve --help` | 成功 | CLI 参数解析；不代表服务已启动 |
-| 两份来源 checkout 的 Git status | 均无改动 | 原分支源码保持只读 |
-| 新目录检查 | 无 `.git`、symlink、`.pt` / `.pth` / `.safetensors` | 没有复制 Git 历史或模型权重；没有创建/上传远端 |
-
-## 关键测试覆盖
-
-- 与来源 Edge selector 的参考实现比较选区；验证 Core80/Stable104 不相交、共享 Stable、逐帧 Core 和零 attention 的有限退化行为。
-- 主 LSE scorer 与全可见 key softmax 数值比较，覆盖 GQA 和不同 UND 长度。
-- 对 Nano layer 使用小型张量/reference attention，验证 profiling 只调用一次主 attention，并保持输出一致。
-- 通过实际 controller/hooks、packing adapter 和 sampler wrapper 验证 28/36 层的完整八次 CFG forward；网络权重用可审计测试替身。
-- 验证 step-0 conditional 背景 bootstrap、CFG 后且 UniPC 前的 velocity 替换，以及 L0/action/ROI 保持当前结果。
-- 连续两次 SparseWAMRunner 请求使用不同输入，确认背景 cache 更新、不跨 chunk 复用；失败后清除 hooks，不把失败报告为成功。
-- 验证真实原生 packing 函数的 metadata、RoPE、异长 CFG 和恢复。为隔离缺失的 `loguru`，测试执行源码 AST 时只移除 logger import；不宣称完整 framework 已成功导入。
-- 验证结构化 caption 保留任务文本，以及 Dense 对照准确记录 8 dense / 0 sparse、无 scorer/cache；拒绝不兼容采样参数。
-
-## 首次整理时尚未验证（2026-10-01）
-
-没有加载 Edge/Nano 权重，没有完成完整 Cosmos 依赖安装或 GPU 服务启动。
-真实 attention kernel 的 LSE、真实 checkpoint/预处理的 token 布局、Nano offload、编译/CUDA Graph、显存、延迟和 RoboLab 成功率都仍需目标环境验证。
-本机缺少 `loguru` 等完整 runtime 依赖；依赖补装尝试没有成功，未用未运行的原仓库集成测试充当通过证据。
-
-本次接入 velocity cache 与 Nano 主 LSE 是行为变化；这里只能报告实现和局部验证，不能宣称论文效果已复现。
-下一阶段具体检查见 [Edge/Nano 差异与 GPU 验收](backbone_differences.md)。
-
-## 4090 配对冒烟（2026-10-06）
-
-直接使用本仓库 `src/sparse_wam` 和各自的 `vendor/edge`、`vendor/nano`，
-没有导入旧实验分支的 ASI controller。远端起点为 `92a770891c95e3a0ab15ffe4866e9a2a2e7c0961`。
-本轮修改 Nano 动态网格校验和报告；测速工具新增 Dense eager/编译 Sparse 隔离与 replay 计数。
-未修改 Core80/Stable104、Top6、评分公式、稀疏调度或 velocity-cache 计算。
-
-环境：RTX 4090 24GB，driver 580.178.04，PyTorch 2.10.0+cu130。
-Edge 使用项目内既有 `.venv`；Nano 经用户批准使用既有宿主机 Cosmos `.venv`，
-强制 reasoner offload / instruction KV cache，GEN 常驻；未连接机器人或仿真器。
-本机没有 `cosmos3-dev` 容器，Nano 结果只代表这次获批环境。
-
-两种骨干均使用本地官方 DROID checkpoint、同一 BananaInBowl observation。
-输入由已有录制 batch 的首个 condition 图像/状态重建，图像已经预处理过，
-不是原始相机输入的逐位重放。输入来源见 `outputs/smoke4090_20261006_v1/input_provenance.json`。
-4 steps、guidance=3、shift=5，3 轮成对预热、5 轮成对测量；
-每轮 Dense/Sparse 使用相同输入和 seed，执行先后交替。
-
-| 模型 / 执行路径 | Mean (s) | Median (s) | P90 (s) | 相对本模型 Dense median |
-|---|---:|---:|---:|---:|
-| Edge Dense eager | 0.891369 | 0.889850 | 0.894290 | 1.000× |
-| Edge Sparse compile+Graph | 0.498788 | 0.498949 | 0.499136 | 1.783× |
-| Nano Dense eager | 3.192250 | 3.196744 | 3.199948 | 1.000× |
-| Nano Sparse compile+Graph | 1.832512 | 1.832207 | 1.840102 | 1.745× |
-
-计时是 CUDA 同步的 `service.infer`：输入预处理、generation、动作后处理和检查；
-不包含模型加载、首次编译和首轮指令 prefill；不解码 future video。
-这是稀疏与编译的联合收益，不能单独归因于 token sparsity。
-测量轮 Dense 均为 0 次 Graph replay；Edge Sparse 每 chunk 264 次，Nano Sparse 288 次。
-Graph 是 layer/函数级的编译器托管执行，不是一个全局四步采样 Graph。
-Edge 编译 decoder 与 encode/decode heads；Nano 使用本仓库已有 GEN adapter 的编译路径。
-
-本输入 Edge/Nano 都是 17×20=340 spatial tokens/帧，每帧保留 K184；
-完整/稀疏 GEN 长度为 3093/1845，L0 和 action 始终保留。
-Nano 不再硬编码 360，CPU 测试覆盖 340/360/400 网格和预算过小拒绝。
-所有测量完成，action/vision 通过有限值检查；一次全量、七次稀疏、七次 pack/restore 和四次 velocity update 均通过运行时检查。
-Nano 日志记录 cond/uncond 各一次 UND prefill，随后卸载 UND/bridge；本次进程峰值 allocated/reserved 为 17.245/17.773 GiB，没有 OOM。
-
-原始样本、action MSE 和运行参数分别保存在：
-
-- `outputs/smoke4090_20261006_v1/edge_compile_graph.json` 及同名 `.log`
-- `outputs/smoke4090_20261006_v1/nano_compile_graph.json` 及同名 `.log`
-
-复现：在本仓库，沿用原有 observation/native JSON 和本地 checkpoint，
-运行 `tools/benchmark_policy.py --backbone edge` 或 `nano`，
-加上 `--execution compile-graph --dense-eager --warmup 3 --repeats 5 --seed 0`。
-设置 `PYTHONPATH=src`、`LD_LIBRARY_PATH=`、`HF_HOME=<HF_CACHE>`，
-以及 `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 UV_OFFLINE=1 OMP_NUM_THREADS=4`。
-Nano 另设 `COSMOS3_REASONER_OFFLOAD=1 COSMOS3_REASONER_KVCACHE=1 COSMOS3_POLICY_REASONER_CACHE=1 COSMOS3_LAYER_OFFLOAD=0`。
-
-36 项 CPU 测试、ruff check、1357 份来源文件校验通过。
-本轮没有验证闭环成功率、不同图像/指令 cache 失效、多尺寸 GPU 推理，
-也没有证明 compiled Sparse 与 eager Sparse 数值等价；这些不能由本次冒烟推导。
-
-### 同日计时边界核查
-
-额外同步诊断（3 轮预热、5 轮测量，不修改模型算术）将 `infer` 与原生 generation 分开：
-
-| 模型 | Dense generation median | Sparse generation median | generation 加速 | 完整 infer 加速 |
-|---|---:|---:|---:|---:|
-| Edge | 0.852108 s | 0.461482 s | 1.846× | 1.782× |
-| Nano | 3.152333 s | 1.786813 s | 1.764× | 1.747× |
-
-服务外围增加约 38–40 ms，不能将完整 infer 比值与历史 generation 比值直接比较。
-Edge 的 1.846× 与原项目历史 B6 表的 1.841× 接近，主 LSE、批量评分、
-首轮 decoder 编译、索引/metadata 复用和 Graph 均已保留。
-本输入每 chunk 原始 packing 调用数：Edge 3 次、Nano 9 次（均包含输入准备）。
-Nano 尚未接入真机服务的请求内原始 packing 复用；旧 Nano 测速脚本也未接入，
-因此不能直接把新旧速度差归因于该优化。历史 Nano 是 Piper 20k/HDF 的 360-token 网格，
-本次是官方 DROID 的 340-token 网格；历史普通 ASI 与本仓库 velocity-cache 版本也不是同一策略。
-诊断原始数据在 `outputs/smoke4090_20261006_v1/boundary_comparison.json`。
-
-## Nano 请求内打包复用回归（2026-10-06）
-
-先将上述 Edge 完整验证版推送至 `origin/main` 的 `15c7e69`，再单独实现此优化。
-仅 Nano Sparse 默认启用；Dense 保持原生 eager，Edge 继续使用原生模板复用。
-可用 `--no-nano-packing-cache` 关闭，不改变评分、Core80/Stable104、velocity cache 或 UniPC。
-复用只覆盖原生 `_get_velocity` 内的 packing，输入准备仍重新构造。
-更新当前 noisy tokens 的原生代码仍执行，缓存命中时只刷新 noisy-position timestep；
-RoPE、condition mask 和 CFG 文本布局不改变。缓存按请求销毁，异常时恢复模型方法。
-
-与上面的 Nano 官方 DROID checkpoint、环境、同一 observation 来源保持一致。
-本次同模型交替 Dense eager、Sparse compile+Graph packing off/on：3 轮预热、10 轮测量。
-轮次交替使用 seed 0/1；seed 1 时图像所有通道增加 1（截断至 uint8 范围），
-每轮三个模式仍使用完全相同输入。这样覆盖两组输入，而非仅重复同一次输出。
-generation 与 infer 分别同步计时，后者含前后处理；不解码视频、不连接机器人。
-
-| 路径 | generation Mean | Median | P90 | 相对 Dense median |
-|---|---:|---:|---:|---:|
-| Dense eager | 3.170534 s | 3.171263 s | 3.185095 s | 1.000× |
-| Sparse compile+Graph，packing off | 1.802849 s | 1.803311 s | 1.814061 s | 1.759× |
-| Sparse compile+Graph，packing on | 1.798973 s | 1.800472 s | 1.811374 s | 1.761× |
-
-两个 median 相差 2.839 ms；按每轮 off−on 配对计算，平均节省 3.876 ms、中位节省 4.739 ms。
-总收益很小，不能将此优化写成明显的整 chunk 加速。
-完整 infer median 分别为 Dense 3.212422 s、off 1.844703 s、on 1.841892 s。
-
-- 13 组成对回归全部通过逐位相等：原始 action、vision latent、执行 mask、Top6 层、
-  block quality 及服务返回 action。结论仅限这两组输入，不是所有输入等价的证明。
-- 每 chunk packing 调用仍为 9 次，其中 3 次构建、6 次缓存命中；3 次包括输入准备及两支 CFG。
-- Sparse off/on 每 chunk 均为 288 次 Graph replay，Dense 为 0；全进程 UND prefill 仅 2 次。
-- 51 项 CPU 测试通过，包括禁用路径、请求清理、文本/布局隔离、异常恢复与不支持布局回退。
-- `ruff check`、`git diff --check`、1357 份 vendor 来源校验通过。
-
-工具：`tools/benchmark_nano_packing.py`；原始结果：
-`outputs/smoke4090_20261006_v1/nano_packing_on_off.json`（同名 `.log`）。
-调用参数同前述 observation/native-config/checkpoint，增加 `--warmup 3 --repeats 10 --output <new.json>`。
-工具本身固定 Nano Sparse compile+Graph、Dense eager，不继承其他策略开关。
-
-## Nano Piper HDF5 配对测速（2026-10-06）
-
-使用当前本地 Sparse-WAM（含 Nano packing cache），不调用 Piper 的旧 ASI controller。
-只新增 `tools/benchmark_nano_hdf5.py` 作为数据/测量入口；算法与 vendor 源码未修改。
-模型来自本仓库 `vendor/nano/cosmos_framework`，HDF reader 和 batch collator 来自 Piper。
-本轮继续使用此前用户批准的宿主机 Nano 环境；不代表真机部署容器性能。
-
-- 权重：`<PIPER_CHECKPOINT_ROOT>/cosmos_battery/20k`。
-- 数据：`<PIPER_DATA_ROOT>/perfect/episode_10.hdf5`，dataset sample 64 / frame 64。
-- 三视角 concat_view，Piper14 state/action，指令 `Assemble the mouse's battery.`；caption 显式 JSON 序列化。
-- 相同完整 batch、seed=0、guidance=3、4 steps、shift=5；输入副本在主计时区外建立并校验哈希。
-- 3 轮预热、20 轮交替 Dense/Sparse；Dense eager，Sparse compile+CUDA Graph。
-- 主口径：CUDA 同步的 `generate_samples_from_batch`，包括本次生成过程中的评分、稀疏与 velocity cache；
-  不含 HDF 预处理、输入复制、初次 prefill/编译、RPC、VAE decode。另记含 controller 设置与输出检查的 runner 时间。
-
-| 路径 | Mean | Median | P90 | Median speedup |
-|---|---:|---:|---:|---:|
-| Dense eager | 3.335734 s | 3.340921 s | 3.353251 s | 1.000× |
-| Sparse-WAM compile+Graph | 1.834787 s | 1.838814 s | 1.846538 s | 1.817× |
-
-包含 runner 开销的 median 分别为 3.341111 / 1.839250 s。
-网格按实际输入识别为 20×18=360，而不是硬编码；每 future frame 保留 Core80+Stable104=184（51.11%）。
-GEN 序列从 3273 缩为 1865，保护 L0 和全部 action token；每 chunk 一次 full profile、七次 sparse forward。
-Top-6 为 `[23,22,21,24,19,25]`。Sparse 每个测量 chunk 均有 288 次 Graph replay，Dense 为 0。
-原始 packing 每 chunk 9 次调用、3 次构建、6 次命中；Reasoner 全进程只 prefill 两次，结束时 UND decoder CUDA 权重为 0，GEN 权重 12.94 GiB。
-峰值 allocated/reserved 为 17.266 / 17.793 GiB。
-
-所有 action/vision 输出通过 NaN/Inf 检查；相同模式的固定输入重复结果逐位一致，原始 batch 哈希未变化。
-Sparse 对本轮 Dense 的完整返回 tensor 误差（不是物理关节角误差）：
-
-| 输出 | MSE | Relative L2 | Cosine |
-|---|---:|---:|---:|
-| action | 0.00139243 | 0.0501787 | 0.998744 |
-| vision latent | 0.0230565 | 0.234151 | 0.972232 |
-
-历史相同 Piper checkpoint/sample 配置的普通 ASI 测得 3.352118/1.853345=1.809×；
-当前结果与该历史加速比接近，但当前包含 step0 背景 velocity cache，不能据此声明两版本算法等价。
-也不能将本次与官方 DROID/340-token 试验的差异归因于某一个优化。
-没有连接机械臂、没有闭环成功率，也没有解码未来帧。
-
-完整结果、逐轮时间、输入哈希、caption、source 状态与复现参数：
-`outputs/nano_hdf5_piper20k_s64_compile_graph_v3/results.json`。
-复现使用该文件的 `argv`，并更换 `--output-dir` 防止覆盖；环境变量与前述 Nano 测试一致。
-`v1/v2` 为测试入口的 VAE 后缀与标量哈希错误尝试，未纳入任何有效样本。
-现有 51 项 CPU 单元测试、标量/bfloat16 输入哈希检查、ruff、vendor source 校验均通过。
-
-## 2026-11-16：GB10 / Edge eager 历史记录归档
-
-已有本机 `edge.json` 与 `edge_manual.json` 均标记 smoke passed，记录实际模型与样本
-revision、环境、有限 `[32, 8]` 动作和逐请求执行检查。每次 Sparse 完成 8 个 forward、
-224 个 block 调用、7 次 pack/restore 和 4 次 velocity 更新；17×20 网格每帧保留 184。
-两次报告的峰值 allocated/reserved 均为约 8.242/8.461 GiB。
-
-2026-11-24 将这两份既有报告和当时的本机说明脱敏归档到 [evidence](evidence/README.md)，
-记录原文件和归档文件的 SHA256。原报告没有记录 Sparse-WAM commit，未据当前 HEAD 补填。
-这不是新增实验；单组测量不作为稳定加速比或成功率结论。ARM64 cuSPARSELt wheel
-标签问题等当时环境限制见归档说明，当前发布仍以 Linux x86_64 的 Edge 安装路径为主。
+Save each run under a distinct `outputs/` path with its source/configuration/input
+metadata. See [benchmark provenance](api.md#benchmark-provenance) for the report
+fields. Do not replace unknown provenance with the current checkout's values.

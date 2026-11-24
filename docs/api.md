@@ -32,7 +32,7 @@ request's actual execution summary.
 
 The runnable [example](../examples/infer_edge.py) loads an NPZ observation, invokes
 the same public service used by the optional WebSocket entry point, and saves the
-action and summary. With assets prepared as described in the [quick start](../README.md#quick-start):
+action and summary. With assets prepared as described in the [RTX 4090 guide](rtx4090.md):
 
 ```python
 import numpy as np
@@ -164,7 +164,7 @@ integrators that need to supply it explicitly.
 loading a checkpoint. `python -m sparse_wam serve --help` lists the optional
 WebSocket entry point. It uses the external OpenPI transport and the same service;
 no REST API is defined by this package. Offline `create_service` inference does
-not require the transport. See the [server example](../README.md#optional-start-a-policy-server)
+not require the transport. See the [server example](rtx4090.md#optional-websocket-service)
 for the required compatible backend environment.
 
 ## Benchmark provenance
@@ -197,7 +197,7 @@ substitute for the model-specific execution checks.
 
 A source archive without `.git` records Git fields as `null`, without borrowing an
 enclosing repository's commit. Missing optional files have a `null` hash; ordinary
-input validation still determines whether inference can run. Original historical
-reports that lack these fields remain incomplete records and must not have a
+input validation still determines whether inference can run. Reports that lack
+these fields remain incomplete records and must not have a
 current commit inserted retroactively. Review local paths and command arguments
 before publishing reports, and preserve the original report hash when redacting.

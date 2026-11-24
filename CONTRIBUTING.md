@@ -7,7 +7,7 @@ Describe any numerical or lifecycle change explicitly in a pull request.
 
 ## Development checks
 
-Use the complete source checkout and the documented Linux x86_64 Edge environment:
+Use the complete source checkout and the [Linux x86_64 Edge environment](docs/rtx4090.md):
 
 ```bash
 uv sync --locked --extra edge
@@ -31,7 +31,7 @@ without it. Update the [API documentation](docs/api.md) when interfaces change.
 
 ## Reproduction evidence
 
-Run the [Edge smoke](README.md#smoke-test-edge) on the target hardware after changes
+Run the [Edge smoke](docs/validation.md#model-smoke) on RTX 4090 after changes
 that affect model loading or inference. Record the source version/commit and dirty
 state, exact command/configuration, environment, checkpoint and observation
 provenance, timing scope, execution counters and pass/fail status. Missing metadata
@@ -44,11 +44,11 @@ outputs; it does not establish a speedup distribution, action-quality threshold 
 closed-loop success rate. Label comparisons that combine sparsity and compilation.
 
 Keep weights, datasets, transient logs and raw runs in the ignored `checkpoints/`
-and `outputs/` directories. Archive selected, reviewed JSON evidence under
-`docs/evidence/`, removing machine-specific paths while preserving measurement
-values and asset revisions. Include original-file and archived-file hashes and
-describe each redaction. Follow the existing [evidence manifest](docs/evidence/manifest.json).
-Never rewrite a historical report to look like a new run against the current code.
+and `outputs/` directories. When sharing a run report for review, remove
+machine-specific paths while preserving measurement values and asset revisions;
+include the original-file hash and describe any redactions. Keep hardware-specific
+run logs out of the public installation documentation. Never change a report's
+recorded source revision to imply a different code version was tested.
 
 ## Source snapshots
 

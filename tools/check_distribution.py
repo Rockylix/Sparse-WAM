@@ -23,10 +23,13 @@ REQUIRED_FILES = (
     "tools/check_sources.py", "tools/check_distribution.py", "tools/prepare_smoke.py",
     "tools/benchmark_policy.py", "configs/edge.json", "configs/nano.json",
     "configs/smoke_edge.json", "docs/method.md", "docs/validation.md",
+    "docs/api.md", "docs/rtx4090.md",
     "examples/infer_edge.py", ".github/workflows/ci.yml",
 )
 SOURCE_DIRECTORIES = ("src/sparse_wam", "vendor", "tools", "configs", "tests", "docs", "examples")
 FORBIDDEN_ROOTS = {"outputs", "checkpoints", "experiments", ".venv", "build", "dist"}
+EXCLUDED_DOCUMENTATION = {"docs/evidence", "docs/changes.md"}
+EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".log", ".pt", ".pth", ".safetensors"}
 
 
 def require(condition, message):
@@ -34,17 +37,22 @@ def require(condition, message):
         raise SystemExit(message)
 
 
+def excluded_documentation(name):
+    return any(name == path or name.startswith(f"{path}/") for path in EXCLUDED_DOCUMENTATION)
+
+
 def validate_paths(names):
     for name in names:
         parts = PurePosixPath(name).parts
         require(parts and not name.startswith("/") and ".." not in parts, f"Unsafe archive path: {name}")
         require(parts[0] not in FORBIDDEN_ROOTS, f"Local artifacts in distribution: {name}")
+        require(not excluded_documentation(name), f"Archived local documentation in distribution: {name}")
         require(not any(p in {".git", "__pycache__"} or p.startswith(".venv") for p in parts),
                 f"Local cache in distribution: {name}")
         require(not any(p == ".env" or p.startswith(".env.") for p in parts),
                 f"Environment file in distribution: {name}")
-        require(PurePosixPath(name).suffix not in {".pyc", ".pyo", ".pt", ".pth", ".safetensors"},
-                f"Generated code or model weights in distribution: {name}")
+        require(PurePosixPath(name).suffix not in EXCLUDED_SUFFIXES,
+                f"Generated code, logs or model weights in distribution: {name}")
 
 
 def check_sdist(archive_path, destination, source_root):
@@ -68,9 +76,11 @@ def check_sdist(archive_path, destination, source_root):
         # essentials, so newly added modules, fixtures and docs cannot be lost.
         for directory in SOURCE_DIRECTORIES:
             for source in (source_root / directory).rglob("*"):
-                if not source.is_file() or "__pycache__" in source.parts or source.suffix in {".pyc", ".pyo"}:
+                if not source.is_file() or "__pycache__" in source.parts or source.suffix in EXCLUDED_SUFFIXES:
                     continue
                 relative = source.relative_to(source_root).as_posix()
+                if excluded_documentation(relative):
+                    continue
                 require(relative in files, f"Source distribution omitted {relative}")
                 with archive.extractfile(files[relative]) as bundled:
                     require(bundled.read() == source.read_bytes(), f"Stale source distribution file: {relative}")

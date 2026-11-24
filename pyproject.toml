@@ -13,6 +13,8 @@ license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 dependencies = ["torch>=2.5"]
 
 [project.urls]
+Homepage = "https://rockylix.github.io/Sparse-WAM.github.io/"
+Paper = "https://arxiv.org/abs/2609.38984"
 Repository = "https://github.com/Rockylix/Sparse-WAM"
 Documentation = "https://github.com/Rockylix/Sparse-WAM#readme"
 Issues = "https://github.com/Rockylix/Sparse-WAM/issues"
