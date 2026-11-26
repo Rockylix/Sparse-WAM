@@ -5,6 +5,7 @@ request a GPU, or treat the wheel as a standalone Cosmos inference runtime.
 """
 
 import argparse
+from email.parser import Parser
 import hashlib
 import json
 import os
@@ -28,7 +29,6 @@ REQUIRED_FILES = (
     "examples/infer_fastwam_joint.py", "configs/fastwam_joint.json",
     "configs/smoke_fastwam_joint.json", "docs/fastwam_joint.md",
     "src/sparse_wam/backends/fastwam_joint.py",
-    "tools/prepare_fastwam_joint_reference.py",
 )
 SOURCE_DIRECTORIES = ("src/sparse_wam", "vendor", "tools", "configs", "tests", "docs", "examples")
 FORBIDDEN_ROOTS = {"outputs", "checkpoints", "experiments", ".venv", "build", "dist"}
@@ -112,9 +112,12 @@ def check_wheel(path):
         require("sparse_wam/runtime.py" in names, "Wheel is missing the public runtime module")
         metadata = next((name for name in names if name.endswith(".dist-info/METADATA")), None)
         require(metadata is not None, "Wheel is missing package metadata")
-        text = archive.read(metadata).decode()
-        require("Description-Content-Type: text/markdown" in text and "# Sparse-WAM" in text,
-                "Wheel metadata is missing the README")
+        message = Parser().parsestr(archive.read(metadata).decode("utf-8"))
+        require(message.get("Description-Content-Type", "").split(";")[0].strip().lower() == "text/markdown",
+                "Wheel README content type is not Markdown")
+        readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+        require(message.get_payload().rstrip("\r\n") == readme.rstrip("\r\n"),
+                "Wheel metadata does not contain the current README")
     print(f"Wheel: {len(names)} files; metadata and attribution verified", flush=True)
 
 

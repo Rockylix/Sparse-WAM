@@ -1,8 +1,5 @@
 # RTX 4090 validation
 
-For the LIBERO input, K56 execution checks and native model timing, follow the
-[FastWAM-Joint validation procedure](fastwam_joint.md).
-
 Use this checklist with the [Edge installation guide](rtx4090.md) on Linux x86_64
 and an RTX 4090. It defines checks to run against your checkout and environment;
 it is not a record of completed target-device testing.
