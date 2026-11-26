@@ -5,6 +5,7 @@ request a GPU, or treat the wheel as a standalone Cosmos inference runtime.
 """
 
 import argparse
+from email.parser import Parser
 import hashlib
 import json
 import os
@@ -25,6 +26,9 @@ REQUIRED_FILES = (
     "configs/smoke_edge.json", "docs/method.md", "docs/validation.md",
     "docs/api.md", "docs/rtx4090.md",
     "examples/infer_edge.py", ".github/workflows/ci.yml",
+    "examples/infer_fastwam_joint.py", "configs/fastwam_joint.json",
+    "configs/smoke_fastwam_joint.json", "docs/fastwam_joint.md",
+    "src/sparse_wam/backends/fastwam_joint.py",
 )
 SOURCE_DIRECTORIES = ("src/sparse_wam", "vendor", "tools", "configs", "tests", "docs", "examples")
 FORBIDDEN_ROOTS = {"outputs", "checkpoints", "experiments", ".venv", "build", "dist"}
@@ -102,15 +106,18 @@ def check_wheel(path):
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         validate_paths(names)
-        for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+        for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md", "vendor/fastwam_joint/LICENSE"):
             require(any(name.endswith(f".dist-info/licenses/{filename}") for name in names),
                     f"Wheel is missing license attribution: {filename}")
         require("sparse_wam/runtime.py" in names, "Wheel is missing the public runtime module")
         metadata = next((name for name in names if name.endswith(".dist-info/METADATA")), None)
         require(metadata is not None, "Wheel is missing package metadata")
-        text = archive.read(metadata).decode()
-        require("Description-Content-Type: text/markdown" in text and "# Sparse-WAM" in text,
-                "Wheel metadata is missing the README")
+        message = Parser().parsestr(archive.read(metadata).decode("utf-8"))
+        require(message.get("Description-Content-Type", "").split(";")[0].strip().lower() == "text/markdown",
+                "Wheel README content type is not Markdown")
+        readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+        require(message.get_payload().rstrip("\r\n") == readme.rstrip("\r\n"),
+                "Wheel metadata does not contain the current README")
     print(f"Wheel: {len(names)} files; metadata and attribution verified", flush=True)
 
 
@@ -124,7 +131,9 @@ def check_unpacked_source(root):
         ("-m", "sparse_wam", "serve", "--help"),
         ("-m", "sparse_wam", "config", "--backbone", "edge"),
         ("-m", "sparse_wam", "config", "--backbone", "nano"),
+        ("-m", "sparse_wam", "config", "--backbone", "fastwam-joint"),
         ("examples/infer_edge.py", "--help"),
+        ("examples/infer_fastwam_joint.py", "--help"),
     )
     for command in commands:
         subprocess.run([sys.executable, *command], cwd=root, env=environment, check=True)

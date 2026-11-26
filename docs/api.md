@@ -1,7 +1,7 @@
 # Python API and input contracts
 
 Use an editable installation from the complete source checkout. The vendored
-`cosmos_framework` runtimes are loaded from that checkout; a standalone wheel
+Cosmos and FastWAM-Joint runtimes are loaded from that checkout; a standalone wheel
 does not include them. Run the examples from the repository root, or use absolute
 paths for checkpoints, native JSON configuration and observation files.
 
@@ -15,18 +15,20 @@ from sparse_wam.service import create_service
 
 | Entry point | Input | Output / responsibility |
 |---|---|---|
-| `SparseWAMConfig(backbone, execution="eager", nano_packing_cache=True)` | `backbone="edge"` or `"nano"`; execution `"eager"`, `"compile"` or `"compile-graph"` | Immutable method settings; `to_dict()` exports a configuration summary |
-| `create_service(config, ...)` | Model checkpoint and optional native configuration | `(service, args)`; loads the model and installs the runner into native generation |
-| `service.infer(observation)` | One recorded RoboLab/DROID observation dictionary | Dictionary containing a NumPy `action` array and optionally decoded `video` |
-| `SparseWAMRunner(model, config, mode="sparse", generate=None)` | An already initialized matching native model | Callable wrapper around native `generate_samples_from_batch` |
+| `SparseWAMConfig(backbone, execution="eager", nano_packing_cache=True)` | `"edge"`, `"nano"` or `"fastwam-joint"` with execution `"eager"`, `"compile"` or `"compile-graph"` | Immutable method settings; `to_dict()` exports a configuration summary |
+| `create_service(config, ...)` | Model checkpoint and optional native configuration | `(service, settings)`; loads the configured offline policy |
+| `service.infer(observation)` | One DROID (Cosmos) or LIBERO (Joint) observation dictionary | NumPy `action` array in a dictionary: `[32, 8]` for Edge, `[32, 7]` for Joint; Cosmos may also return decoded `video` |
+| `SparseWAMRunner(model, config, mode="sparse", generate=None)` | An initialized native Cosmos model | Callable wrapper around native `generate_samples_from_batch` |
 | `runner(data_batch, **kwargs)` | One native, transformed/collated policy batch | Native output dictionary, including one-element `action` and `vision` tensor lists |
 
 `SparseWAMConfig` does not load weights. `config.to_dict()` describes the fixed
 method settings; it is not a native server configuration. The files
-`configs/edge.json` and `configs/nano.json` are exported summaries, not inputs to
+`configs/edge.json`, `configs/nano.json` and `configs/fastwam_joint.json` are exported summaries, not inputs to
 `--native-config`. Use `run_metadata("dense")` or `run_metadata("sparse")` for
 mode-specific metadata and `runner.last_summary` for the most recently completed
 request's actual execution summary.
+
+For the LIBERO observation fields and Joint asset paths, see [FastWAM-Joint](fastwam_joint.md).
 
 ## Offline Edge inference
 
@@ -65,15 +67,14 @@ listener. `mode` is `"dense"` or `"sparse"`.
 
 Checkpoint selection is: explicit `checkpoint` / CLI `--checkpoint-path`, then
 `checkpoint_path` from the native JSON, then the selected backbone's default.
-The native JSON is an object whose fields follow the selected runtime's
+For Cosmos, the native JSON is an object whose fields follow its
 `RobolabServerArgs`. Invalid fields or incompatible sampling options fail rather
 than changing the reproduction protocol. Host, port, seed and output directory
 are controlled by the function/CLI arguments, including their defaults.
 
 `configs/smoke_edge.json` disables auxiliary guardrail models and video decoding
 for offline testing. A different deployment can supply its own asset and service
-configuration. Relative paths in arguments and native JSON refer to the process
-working directory, not the directory containing the JSON file.
+configuration. Cosmos resolves relative paths from the working directory. FastWAM-Joint instead resolves the four asset paths in its JSON relative to that file; explicit checkpoint arguments still resolve from the working directory.
 
 ## DROID observation and result
 
@@ -135,7 +136,7 @@ Wrap generation once. `create_service` already installs a runner as
 The optional `generate` argument is an unwrapped native generation callable for
 integrators that need to supply it explicitly.
 
-## Execution and lifecycle
+## Cosmos execution and lifecycle
 
 - This release uses one GPU/rank and one policy sample, native UniPC, four denoising
   steps, guidance 3 and shift 5. Sparse execution retains Core80 + Stable104 future
@@ -162,7 +163,7 @@ integrators that need to supply it explicitly.
 
 `python -m sparse_wam config --backbone edge` prints method configuration without
 loading a checkpoint. `python -m sparse_wam serve --help` lists the optional
-WebSocket entry point. It uses the external OpenPI transport and the same service;
+WebSocket entry point. It supports Cosmos Edge and Nano with the external OpenPI transport;
 no REST API is defined by this package. Offline `create_service` inference does
 not require the transport. See the [server example](rtx4090.md#optional-websocket-service)
 for the required compatible backend environment.

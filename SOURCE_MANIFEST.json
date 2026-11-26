@@ -9,6 +9,12 @@
       "repository": "Rockylix/Cosmos3-nano-policy",
       "branch": "version/asi",
       "commit": "a89509e1f54e60f0622741995efd5e2f3d6710d6"
+    },
+    "fastwam_joint": {
+      "repository": "Rockylix/Fastwam-joint",
+      "branch": "version/asi-k56",
+      "commit": "88fed984c03ea963ee6cc24f7753c59c20908c2d",
+      "source_snapshot": "Working-tree K56 inference files on top of this commit. Entries with upstream_commit_sha256 record the committed blob separately."
     }
   },
   "files": [
@@ -8153,6 +8159,148 @@
       "source": "edge",
       "source_path": "cosmos_framework/inference/edge_core_stable_layout.py",
       "source_sha256": "bb08d94dc022500b592c428005a2041d3d9fd435aa6f2f872af95228ecf4f3de"
+    },
+    {
+      "path": "vendor/fastwam_joint/LICENSE",
+      "source": "fastwam_joint",
+      "source_path": "LICENSE",
+      "source_sha256": "62de788331e51d3ce2228685f72c283bc817c2892d2bbee4808b75e59f0829b8"
+    },
+    {
+      "path": "vendor/fastwam_joint/configs/model/fastwam_joint.yaml",
+      "source": "fastwam_joint",
+      "source_path": "configs/model/fastwam_joint.yaml",
+      "source_sha256": "4be9540dd6c3221053126f0246a527670ec59e66734629710fa30b5ce9ae8d59"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/__init__.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/__init__.py",
+      "source_sha256": "ce3918dcf38556d145a8cfd867be204fb8dd4f962bfc8d3c47684445bbe64cbb"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/__init__.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/__init__.py",
+      "source_sha256": "ae4c5733f4bbf7caf31df2ae6f789516f6a10cd84a321f7d0375a7034253ac6d"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/dit_cache/__init__.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/dit_cache/__init__.py",
+      "source_sha256": "21a21bbb157420c734ac217469eefc98e296b4cb479c84a2df8e651dd92f9d60"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/dit_cache/fixed_step.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/dit_cache/fixed_step.py",
+      "source_sha256": "aa13812ab51cddf53cb9c36ed427d51f0edf0506b5c56523cfb289d0a50b70de"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/__init__.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/action_dit.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/action_dit.py",
+      "source_sha256": "306ad0417c5a8a13125e1bb2df071bae16cd9a9f0f2e29db37a95eff4830b7e5"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/fastwam.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/fastwam.py",
+      "source_sha256": "cf861682467cbd3cc43cdd583aa3a8ad9800f9e8d09123f7cc3a581080406d8b",
+      "upstream_commit_sha256": "60b3cf2c62c3d3ebd8ef61c3afb8e6e6b4de228e5fc3286cc0abcb65e278e1d8"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/fastwam_joint.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/fastwam_joint.py",
+      "source_sha256": "0e04bc3bc0d5419fe3596128bb6b59703340136094808edc1b554d379ca6a725",
+      "upstream_commit_sha256": "5cfbb17c444ed7807a70164646f578992e5172eb6a55f2ab1ab94789511e68e2"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/fastwam_joint_version1.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/fastwam_joint_version1.py",
+      "source_sha256": "7372c89b73de4b28dbd1e59c0dd8df1b6ad6cc940b0005e6e82b2a7f260ef746",
+      "upstream_commit_sha256": "6b201370fe55ff5ab96784b92c69164308806270e3ed2537b113c7b70fde1aef"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/fastwam_sparse_graph.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/fastwam_sparse_graph.py",
+      "source_sha256": "a3207be63c217f85dbd1466d56db1aa3b5ce4e9fa606f65df10ed5d27f7f3138"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/fastwam_step0_profile.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/fastwam_step0_profile.py",
+      "source_sha256": "9694003d1443311dc621aebd4072b4c30c255f91f6c72511e1d29ff64305becd"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/mot.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/mot.py",
+      "source_sha256": "401d3bf3006ca0e89d08609275abd47242363883ca2873345504101fb4221330",
+      "upstream_commit_sha256": "d7d8fd07beb8fb96ea67c98a3c5c065c63b813f232c1ffdbdfe4b02a1fb737d6"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/wan_video_dit.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/wan_video_dit.py",
+      "source_sha256": "4249f1ecb71891c60a99934e2ba669b482ebf283d9978091cfdcefd44e2dede6"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/wan_video_text_encoder.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/wan_video_text_encoder.py",
+      "source_sha256": "aedf7f131556a39b99a273deec3a85d67f41b5367cef41f310f33a807ae60a87"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/wan_video_vae.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/wan_video_vae.py",
+      "source_sha256": "31b3fb9f844a76f5db5af4854e14802aae640b85b61d0de03a4b53b52515abb7"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/helpers/__init__.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/helpers/__init__.py",
+      "source_sha256": "f26116de229557a37a4812dc4ee75971f5f9e8b80240786ea4d0e5b0ff703cbf"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/helpers/gradient.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/helpers/gradient.py",
+      "source_sha256": "ba5d8f7272eb029dc6cd2849ca99b70f6ad5abb838d21c818beb0590620dc793"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/helpers/io.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/helpers/io.py",
+      "source_sha256": "1c6c1bc8a975b47092912833194fce25e2e3ac886fbab72d73af3ff5a00b3c62"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/helpers/loader.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/helpers/loader.py",
+      "source_sha256": "57a186275c646c1218ae11bac5ad1e4d2ddf48f35ebc993af088f9b064d40a7d"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/helpers/state_dict_converters.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/helpers/state_dict_converters.py",
+      "source_sha256": "81d213373e5056a8d8bf31768b9b04164138ea78d0b306e316334841499f4bf9"
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/schedulers/scheduler_continuous.py",
+      "source": "fastwam_joint",
+      "source_path": "src/qi/models/wan22/schedulers/scheduler_continuous.py",
+      "source_sha256": "2ececce284f7b9fe876965fbf5e11ca7b69caaf693979266b0f63062a589f181"
     }
   ],
   "local_changes": [
@@ -8160,6 +8308,46 @@
       "path": "vendor/edge/cosmos_framework/inference/edge_core_stable_fast.py",
       "sha256": "6ff0255480cfecf4b6eef0ac9e9bb0ab0c11b44c0a1b6d9707a68d79cf5bd24c",
       "reason": "Delegate main-attention LSE scoring to sparse_wam.scoring; fallback preserved for original runtime compatibility."
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/__init__.py",
+      "sha256": "186b15ce1f1ddef2ee99c70e0cdecc71ccb1a69dbf3bb30bd96ad6db2366a5a9",
+      "reason": "Avoid importing the training and deployment entry points."
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/action_dit.py",
+      "sha256": "d74fa36eca53aecd6337b97e4504977a1c6970ed07d9f3ded5656e30a69e5f27",
+      "reason": "Use standard logging in offline inference."
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/fastwam.py",
+      "sha256": "4b00768a971f78a91d4efda25774f5e25d5aaf5c7df658844667f0bd897b5c71",
+      "reason": "Use standard logging in offline inference. Resolve the private cache module and forward an explicit local VAE path."
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/fastwam_joint.py",
+      "sha256": "5b330028598066333bf77eeec78d4bf37d5012695d6272706695cdace8748f89",
+      "reason": "Use standard logging in offline inference."
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/mot.py",
+      "sha256": "dc2ba893a2bec934d66354116fb04153e9afa40160efbe1c30ac9b8904769e4c",
+      "reason": "Use standard logging in offline inference. Use the original BF16 Q/K/V operations without importing the INT8 extension."
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/wan_video_dit.py",
+      "sha256": "c0c4a7c660b7bcf73aa08b02aba6d39eba8f173c2f9d397434eabf8ba2f17efe",
+      "reason": "Use standard logging in offline inference. Retain the BF16 SelfAttention branch and omit optional INT8 imports."
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/wan_video_text_encoder.py",
+      "sha256": "0d0f6b438da24010b74dbf386b5753b60464bbd24fccb819f35d7cd07b36236d",
+      "reason": "Load the tokenizer dependency only for online text encoding."
+    },
+    {
+      "path": "vendor/fastwam_joint/fastwam_joint_native/models/wan22/helpers/loader.py",
+      "sha256": "2898a43a89404414c968a657534f31ecccfc256517b31db020ec4ba0bfe66f91",
+      "reason": "Use standard logging in offline inference. Prefer the explicit VAE file supplied by the service."
     }
   ],
   "derived_core": [

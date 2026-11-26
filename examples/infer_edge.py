@@ -16,15 +16,15 @@ from sparse_wam.reproducibility import collect_run_metadata
 from sparse_wam.service import create_service
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(argv=None, *, backbone="edge"):
+    parser = argparse.ArgumentParser(description=f"Run the {backbone} policy on a recorded observation")
     parser.add_argument("--checkpoint-path", required=True)
     parser.add_argument("--observation", type=Path, required=True)
     parser.add_argument("--native-config", type=Path)
     parser.add_argument("--mode", choices=("dense", "sparse"), default="sparse")
     parser.add_argument("--execution", choices=("eager", "compile", "compile-graph"), default="eager")
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--output", type=Path, default=Path("outputs/example/edge_action.npz"))
+    parser.add_argument("--seed", type=int, default=42 if backbone == "fastwam-joint" else 0)
+    parser.add_argument("--output", type=Path, default=Path("outputs/example") / f"{backbone}_action.npz")
     args = parser.parse_args(argv)
     if args.output.suffix != ".npz":
         parser.error("--output must end in .npz; a .json summary is written alongside it")
@@ -40,14 +40,14 @@ def main(argv=None):
         native_config=args.native_config, input_files={"observation": args.observation},
     )
     service, settings = create_service(
-        SparseWAMConfig("edge", args.execution), checkpoint=args.checkpoint_path,
+        SparseWAMConfig(backbone, args.execution), checkpoint=args.checkpoint_path,
         native_config=args.native_config, seed=args.seed, mode=args.mode,
         output_dir=str(args.output.parent / "native"),
     )
     result = service.infer(observation)
     action = np.asarray(result["action"])
     if action.ndim != 2 or action.shape[0] != 32 or action.shape[1] == 0 or not np.isfinite(action).all():
-        raise RuntimeError("Expected finite [32, action_dim] actions from the Edge policy")
+        raise RuntimeError(f"Expected finite [32, action_dim] actions from the {backbone} policy")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("xb") as target:
         np.savez(target, action=action)

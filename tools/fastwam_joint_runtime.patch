@@ -1,0 +1,195 @@
+--- a/fastwam_joint_native/__init__.py
++++ b/fastwam_joint_native/__init__.py
+@@ -1,5 +1 @@
+-"""Qi package."""
+-
+-from qi.api import load_model
+-
+-__all__ = ["load_model"]
++"""FastWAM-Joint inference modules vendored for Sparse-WAM."""
+--- a/fastwam_joint_native/models/wan22/action_dit.py
++++ b/fastwam_joint_native/models/wan22/action_dit.py
+@@ -3,7 +3,7 @@
+ import torch.nn as nn
+ from typing import Any, Dict, Optional
+ 
+-from qi.utils.logging_config import get_logger
++from logging import getLogger as get_logger
+ 
+ from .helpers.gradient import gradient_checkpoint_forward
+ from .wan_video_dit import (
+--- a/fastwam_joint_native/models/wan22/fastwam.py
++++ b/fastwam_joint_native/models/wan22/fastwam.py
+@@ -7,8 +7,8 @@
+ import torch.nn.functional as F
+ from PIL import Image
+ 
+-from qi.dit_cache import FixedStepCacheState
+-from qi.utils.logging_config import get_logger
++from ...dit_cache import FixedStepCacheState
++from logging import getLogger as get_logger
+ 
+ from .action_dit import ActionDiT
+ from .helpers.loader import load_wan22_ti2v_5b_components
+@@ -611,6 +611,7 @@
+         action_num_train_timesteps: int = 1000,
+         loss_lambda_video: float = 1.0,
+         loss_lambda_action: float = 1.0,
++        vae_path: str | None = None,
+     ):
+         if video_dit_config is None:
+             raise ValueError("`video_dit_config` is required for FastWAM.from_wan22_pretrained().")
+@@ -625,6 +626,7 @@
+             tokenizer_max_len=tokenizer_max_len,
+             redirect_common_files=redirect_common_files,
+             dit_config=video_dit_config,
++            vae_path=vae_path,
+             skip_dit_load_from_pretrain=skip_dit_load_from_pretrain,
+             load_text_encoder=load_text_encoder,
+         )
+--- a/fastwam_joint_native/models/wan22/fastwam_joint.py
++++ b/fastwam_joint_native/models/wan22/fastwam_joint.py
+@@ -2,7 +2,7 @@
+ 
+ import torch
+ 
+-from qi.utils.logging_config import get_logger
++from logging import getLogger as get_logger
+ 
+ from .fastwam import FastWAM
+ 
+--- a/fastwam_joint_native/models/wan22/mot.py
++++ b/fastwam_joint_native/models/wan22/mot.py
+@@ -9,7 +9,7 @@
+ 
+ from .fastwam_step0_profile import efficient_attention_with_lse
+ from .wan_video_dit import flash_attention, modulate, rope_apply
+-from qi.utils.logging_config import get_logger
++from logging import getLogger as get_logger
+ 
+ logger = get_logger(__name__)
+ 
+@@ -396,29 +396,9 @@
+             q = sa.norm_q(q_raw)
+             k = sa.norm_k(k_raw)
+         else:
+-            # Fused INT8 QKV: quantize attn_input once, then run 3 GEMMs.
+-            # This eliminates 2 redundant quantize kernels per layer per step.
+-            from qi.quantization.modules import WeightOnlyLinear
+-            from qi.quantization.backends.int8_w8a8_ops import Int8W8A8Backend
+-            if (
+-                isinstance(sa.q, WeightOnlyLinear)
+-                and isinstance(sa.k, WeightOnlyLinear)
+-                and isinstance(sa.v, WeightOnlyLinear)
+-                and isinstance(sa.q.backend, Int8W8A8Backend)
+-                and sa.q.backend is sa.k.backend is sa.v.backend
+-            ):
+-                q_raw, k_raw, v = sa.q.backend.fused_qkv_linear(
+-                    attn_input,
+-                    qw_q=sa.q.qweight, qw_k=sa.k.qweight, qw_v=sa.v.qweight,
+-                    ws_q=sa.q.scales, ws_k=sa.k.scales, ws_v=sa.v.scales,
+-                    bias_q=sa.q.bias, bias_k=sa.k.bias, bias_v=sa.v.bias,
+-                )
+-                q = sa.norm_q(q_raw)
+-                k = sa.norm_k(k_raw)
+-            else:
+-                q = sa.norm_q(sa.q(attn_input))
+-                k = sa.norm_k(sa.k(attn_input))
+-                v = sa.v(attn_input)
++            q = sa.norm_q(sa.q(attn_input))
++            k = sa.norm_k(sa.k(attn_input))
++            v = sa.v(attn_input)
+ 
+         q = rope_apply(q, freqs, block.num_heads)
+         k = rope_apply(k, freqs, block.num_heads)
+--- a/fastwam_joint_native/models/wan22/wan_video_dit.py
++++ b/fastwam_joint_native/models/wan22/wan_video_dit.py
+@@ -6,9 +6,7 @@
+ from einops import rearrange
+ from .helpers.gradient import gradient_checkpoint_forward
+ 
+-from qi.utils.logging_config import get_logger
+-from qi.quantization.modules import WeightOnlyLinear
+-from qi.quantization.backends.int8_w8a8_ops import Int8W8A8Backend
++from logging import getLogger as get_logger
+ 
+ logger = get_logger(__name__)
+ 
+@@ -188,27 +186,9 @@
+         # self.attn = AttentionModule(self.num_heads)
+ 
+     def forward(self, x, freqs, self_attn_mask: Optional[torch.Tensor] = None):
+-        # Use fused QKV path when all projections share the same INT8 backend
+-        # and are WeightOnlyLinear instances — quantize x once instead of 3×.
+-        if (
+-            isinstance(self.q, WeightOnlyLinear)
+-            and isinstance(self.k, WeightOnlyLinear)
+-            and isinstance(self.v, WeightOnlyLinear)
+-            and isinstance(self.q.backend, Int8W8A8Backend)
+-            and self.q.backend is self.k.backend is self.v.backend
+-        ):
+-            q_raw, k_raw, v = self.q.backend.fused_qkv_linear(
+-                x,
+-                qw_q=self.q.qweight, qw_k=self.k.qweight, qw_v=self.v.qweight,
+-                ws_q=self.q.scales, ws_k=self.k.scales, ws_v=self.v.scales,
+-                bias_q=self.q.bias, bias_k=self.k.bias, bias_v=self.v.bias,
+-            )
+-            q = self.norm_q(q_raw)
+-            k = self.norm_k(k_raw)
+-        else:
+-            q = self.norm_q(self.q(x))
+-            k = self.norm_k(self.k(x))
+-            v = self.v(x)
++        q = self.norm_q(self.q(x))
++        k = self.norm_k(self.k(x))
++        v = self.v(x)
+         q = rope_apply(q, freqs, self.num_heads)
+         k = rope_apply(k, freqs, self.num_heads)
+         x = flash_attention(q=q, k=k, v=v, num_heads=self.num_heads, ctx_mask=self_attn_mask)
+--- a/fastwam_joint_native/models/wan22/wan_video_text_encoder.py
++++ b/fastwam_joint_native/models/wan22/wan_video_text_encoder.py
+@@ -2,7 +2,6 @@
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+-from transformers import AutoTokenizer
+ import html
+ import string
+ try:
+@@ -303,6 +302,8 @@
+         self.clean = clean
+ 
+         # init tokenizer
++        from transformers import AutoTokenizer
++
+         self.tokenizer = AutoTokenizer.from_pretrained(name, **kwargs)
+         self.vocab_size = self.tokenizer.vocab_size
+ 
+--- a/fastwam_joint_native/models/wan22/helpers/loader.py
++++ b/fastwam_joint_native/models/wan22/helpers/loader.py
+@@ -12,7 +12,7 @@
+ from ..wan_video_dit import WanVideoDiT
+ from ..wan_video_text_encoder import HuggingfaceTokenizer, WanTextEncoder
+ from ..wan_video_vae import WanVideoVAE38
+-from qi.utils.logging_config import get_logger
++from logging import getLogger as get_logger
+ 
+ logger = get_logger(__name__)
+ SKIPPED_PRETRAIN_SENTINEL = "SKIPPED_PRETRAIN"
+@@ -148,6 +148,7 @@
+     dit_config: dict[str, Any] | None = None,
+     skip_dit_load_from_pretrain: bool = False,
+     load_text_encoder: bool = True,
++    vae_path: str | None = None,
+ ):
+     logger.info("Loading Wan2.2-TI2V-5B components...")
+     start = time.time()
+@@ -162,6 +163,8 @@
+         redirect_common_files=redirect_common_files,
+     )
+ 
++    if vae_path is not None:
++        vae_config.path = str(vae_path)
+     vae_config.download_if_necessary()
+     if load_text_encoder:
+         text_config.download_if_necessary()

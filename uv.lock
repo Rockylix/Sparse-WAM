@@ -1227,6 +1227,15 @@ edge = [
     { name = "webdataset" },
     { name = "websockets" },
 ]
+fastwam-joint = [
+    { name = "einops" },
+    { name = "numpy" },
+    { name = "omegaconf" },
+    { name = "pillow" },
+    { name = "safetensors" },
+    { name = "torch" },
+    { name = "tqdm" },
+]
 test = [
     { name = "numpy" },
     { name = "pillow" },
@@ -1250,6 +1259,7 @@ requires-dist = [
     { name = "cattrs", marker = "extra == 'edge'" },
     { name = "diffusers", marker = "extra == 'edge'", specifier = ">=0.39,<0.40" },
     { name = "einops", marker = "extra == 'edge'" },
+    { name = "einops", marker = "extra == 'fastwam-joint'" },
     { name = "huggingface-hub", marker = "extra == 'edge'", specifier = ">=0.34,<1" },
     { name = "hydra-core", marker = "extra == 'edge'" },
     { name = "imageio", marker = "extra == 'edge'" },
@@ -1258,29 +1268,35 @@ requires-dist = [
     { name = "loguru", marker = "extra == 'edge'" },
     { name = "msgpack", marker = "extra == 'edge'" },
     { name = "numpy", marker = "extra == 'edge'", specifier = ">=2,<2.3" },
+    { name = "numpy", marker = "extra == 'fastwam-joint'", specifier = ">=2,<2.3" },
     { name = "numpy", marker = "extra == 'test'", specifier = ">=2,<2.3" },
     { name = "nvidia-ml-py", marker = "extra == 'edge'" },
     { name = "obstore", marker = "extra == 'edge'" },
     { name = "omegaconf", marker = "extra == 'edge'" },
+    { name = "omegaconf", marker = "extra == 'fastwam-joint'" },
     { name = "pillow", marker = "extra == 'edge'", specifier = ">=12.2" },
+    { name = "pillow", marker = "extra == 'fastwam-joint'", specifier = ">=12.2" },
     { name = "pillow", marker = "extra == 'test'", specifier = ">=12.2" },
     { name = "pydantic", marker = "extra == 'edge'", specifier = ">=2" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8" },
     { name = "qwen-vl-utils", marker = "extra == 'edge'" },
     { name = "requests", marker = "extra == 'edge'" },
     { name = "safetensors", marker = "extra == 'edge'" },
+    { name = "safetensors", marker = "extra == 'fastwam-joint'" },
     { name = "scipy", marker = "extra == 'edge'" },
     { name = "termcolor", marker = "extra == 'edge'" },
     { name = "torch", specifier = ">=2.5", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torch", marker = "extra == 'edge'", specifier = "==2.14.1", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "torch", marker = "extra == 'fastwam-joint'", specifier = "==2.14.1", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", marker = "extra == 'edge'", specifier = "==0.29.1", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "tqdm", marker = "extra == 'fastwam-joint'" },
     { name = "transformers", marker = "extra == 'edge'", specifier = ">=4.57.1,<5" },
     { name = "tyro", marker = "extra == 'edge'" },
     { name = "wandb", marker = "extra == 'edge'" },
     { name = "webdataset", marker = "extra == 'edge'" },
     { name = "websockets", marker = "extra == 'edge'" },
 ]
-provides-extras = ["test", "edge"]
+provides-extras = ["test", "fastwam-joint", "edge"]
 
 [package.metadata.requires-dev]
 dev = [

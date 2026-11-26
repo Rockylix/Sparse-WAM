@@ -77,8 +77,8 @@ Robust experiments on LIBERO-Plus with Fastwam-Joint.
 ### Model support
 
 - [x] [Cosmos3 Edge on RTX 4090](docs/rtx4090.md)
+- [x] [FastWAM-Joint on LIBERO (offline, RTX 4090)](docs/fastwam_joint.md)
 - [ ] Cosmos3 Nano Policy
-- [ ] FastWAM-Joint
 
 ## News
 
@@ -98,7 +98,8 @@ source .venv/bin/activate
 ```
 
 Keep the complete source checkout: the vendored runtimes are required for
-inference. See the [RTX 4090 guide](docs/rtx4090.md) for environment and asset details.
+inference. The commands above install Edge. For FastWAM-Joint, use
+`uv sync --locked --extra fastwam-joint` and follow the [LIBERO setup and Python example](docs/fastwam_joint.md).
 
 ## Example
 

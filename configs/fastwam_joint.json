@@ -1,0 +1,33 @@
+{
+  "backbone": "fastwam-joint",
+  "execution": "eager",
+  "layers": 30,
+  "video_hidden_size": 3072,
+  "action_hidden_size": 1024,
+  "future_frames": 2,
+  "spatial_tokens": 98,
+  "action_horizon": 32,
+  "action_dim": 7,
+  "proprio_dim": 8,
+  "core_tokens": 19,
+  "stable_tokens": 37,
+  "retained_tokens": 56,
+  "informative_layers": 6,
+  "cv_penalty": 1.0,
+  "action_weights": [
+    0.16666666666666666,
+    0.3333333333333333,
+    0.3333333333333333,
+    0.16666666666666666
+  ],
+  "num_steps": 10,
+  "guidance": 1.0,
+  "shift": 5.0,
+  "dense_forwards": 1,
+  "sparse_forwards": 9,
+  "profile": "step0_joint",
+  "scorer": "main_attention_lse",
+  "background_update": "step0_velocity_cache",
+  "mask_scope": "one_action_chunk",
+  "checkpoint": "checkpoints/fastwam_joint/step_040000.pt"
+}

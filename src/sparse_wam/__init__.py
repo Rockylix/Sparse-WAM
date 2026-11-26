@@ -1,4 +1,4 @@
-"""Sparse-WAM, restricted to Cosmos3 policy inference."""
+"""Sparse-WAM inference for Cosmos3 and FastWAM-Joint policies."""
 
 from .config import SparseWAMConfig
 from .selection import SelectionPlan, select_tokens
