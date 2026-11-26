@@ -1,5 +1,16 @@
 # Third-party notices
 
+The root [LICENSE](LICENSE) is the default license for Sparse-WAM. Use the table below to identify exceptions and upstream notices for individual files.
+
+| Files or directory | License and attribution |
+| --- | --- |
+| Project-owned files, including the shared API in `src/sparse_wam/`, unless listed below | OpenMDW-1.1; see the root `LICENSE`. |
+| `vendor/edge/` and `vendor/nano/` | Cosmos Framework code and adaptations. Each directory retains its upstream OpenMDW-1.1 `LICENSE` and individual file notices. |
+| `src/sparse_wam/backends/fastwam_joint.py` and `src/sparse_wam/backends/libero.py` | Original Joint interface and LIBERO adapter: MIT, copyright (c) 2026 Rockylix. See the [MIT text](vendor/fastwam_joint/LICENSE). |
+| `vendor/fastwam_joint/` and the corresponding source excerpts in `tools/fastwam_joint_runtime.patch` | The FastWAM-Joint snapshot includes Rockylix’s MIT license. See the provenance and Qi license note below; existing third-party notices are preserved. |
+
+## Cosmos Framework
+
 This project includes Cosmos Framework code and adaptations from:
 
 - Rockylix/Cosmos3-Task-relevant-Inference, branch `version/core80-stable104-action-weighted`,
@@ -14,8 +25,7 @@ Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 The Cosmos source repositories distribute their materials under OpenMDW-1.1. A copy is
 retained in `LICENSE`, `vendor/edge/LICENSE` and `vendor/nano/LICENSE`. Original file-level
 notices, including third-party notices within vendored modules, remain in place.
-New and adapted Sparse-WAM code in this directory is distributed under the same
-OpenMDW-1.1 terms. This does not claim that NVIDIA authored the local modifications.
+NVIDIA’s copyright notice does not attribute local modifications to NVIDIA.
 
 `SOURCE_MANIFEST.json` records source repositories, branches, commits, file hashes,
 and documented local changes. Removing Git history or fork relationships does not

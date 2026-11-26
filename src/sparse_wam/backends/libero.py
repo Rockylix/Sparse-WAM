@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Rockylix
+# SPDX-License-Identifier: MIT
 """Two-camera LIBERO observations and actions for the Joint checkpoint."""
 
 import hashlib

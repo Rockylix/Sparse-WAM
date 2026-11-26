@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Rockylix
+# SPDX-License-Identifier: MIT
 """Native FastWAM-Joint Dense and K56 inference over one LIBERO observation."""
 
 from dataclasses import dataclass
