@@ -6,6 +6,8 @@ def make_backend(config):
         from .edge import EdgeBackend
 
         return EdgeBackend(config)
-    from .nano import NanoBackend
+    if config.backbone == "nano":
+        from .nano import NanoBackend
 
-    return NanoBackend(config)
+        return NanoBackend(config)
+    raise ValueError(f"{config.backbone} uses its own native controller via create_service")

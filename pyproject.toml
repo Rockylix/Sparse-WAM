@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sparse-wam-cosmos3"
 version = "0.1.0"
-description = "Action-guided sparse imagination for Cosmos3 Edge and Nano policies"
+description = "Action-guided sparse imagination for Cosmos3 and FastWAM-Joint policies"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "LicenseRef-OpenMDW-1.1"
-license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "vendor/fastwam_joint/LICENSE"]
 dependencies = ["torch>=2.5"]
 
 [project.urls]
@@ -21,6 +21,15 @@ Issues = "https://github.com/Rockylix/Sparse-WAM/issues"
 
 [project.optional-dependencies]
 test = ["pytest>=8", "numpy>=2,<2.3", "pillow>=12.2"]
+fastwam-joint = [
+  "torch==2.14.1",
+  "einops",
+  "numpy>=2,<2.3",
+  "omegaconf",
+  "pillow>=12.2",
+  "safetensors",
+  "tqdm",
+]
 edge = [
   "torch==2.14.1",
   "torchvision==0.29.1",

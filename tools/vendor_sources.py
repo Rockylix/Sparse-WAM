@@ -1,14 +1,17 @@
 """Export pinned runtime snapshots without Git history, weights, or experiment artifacts.
 
 Run once from a fresh destination. Source checkouts are read-only inputs.
-The two framework ABIs intentionally remain separate until GPU migration validation.
+The Edge and Nano snapshots have separate framework ABIs. The Joint export
+uses its pinned working-tree files and the recorded packaging patch.
 """
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = {
@@ -21,7 +24,50 @@ SOURCES = {
 }
 
 
+def export_fastwam_joint(source, destination):
+    """Reproduce the published BF16 snapshot from the recorded K56 working tree."""
+    manifest = json.loads((ROOT / "SOURCE_MANIFEST.json").read_text(encoding="utf-8"))
+    source_info = manifest["sources"]["fastwam_joint"]
+    head = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
+    if head != source_info["commit"]:
+        raise ValueError(f"Expected FastWAM-Joint base commit {source_info['commit']}, found {head}")
+    if destination.exists():
+        raise FileExistsError(f"Refusing to overwrite {destination}")
+
+    entries = [entry for entry in manifest["files"] if entry["source"] == "fastwam_joint"]
+    changes = {entry["path"]: entry["sha256"] for entry in manifest["local_changes"]}
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=destination.parent) as temporary:
+        staged = Path(temporary) / "snapshot"
+        for entry in entries:
+            data = (source / entry["source_path"]).read_bytes()
+            if hashlib.sha256(data).hexdigest() != entry["source_sha256"]:
+                raise ValueError(f"Reference working-tree mismatch: {entry['source_path']}")
+            output = staged / Path(entry["path"]).relative_to("vendor/fastwam_joint")
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(data)
+        subprocess.run(
+            ["patch", "--batch", "--fuzz=0", "-p1", "-i", str(ROOT / "tools/fastwam_joint_runtime.patch")],
+            cwd=staged, check=True,
+        )
+        for entry in entries:
+            output = staged / Path(entry["path"]).relative_to("vendor/fastwam_joint")
+            expected = changes.get(entry["path"], entry["source_sha256"])
+            if hashlib.sha256(output.read_bytes()).hexdigest() != expected:
+                raise ValueError(f"Adapted file mismatch: {entry['path']}")
+        staged.rename(destination)
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--fastwam-joint-source", type=Path, help="Export only the pinned Joint working tree")
+    parser.add_argument("--destination", type=Path, help="Output directory for a fresh Joint export")
+    args = parser.parse_args()
+    if args.fastwam_joint_source:
+        export_fastwam_joint(args.fastwam_joint_source, args.destination or ROOT / "vendor/fastwam_joint")
+        return
+    if args.destination:
+        parser.error("--destination requires --fastwam-joint-source")
     manifest = {"sources": {}, "files": [], "local_changes": []}
     for tier, (name, branch, commit) in SOURCES.items():
         source = ROOT.parent / name

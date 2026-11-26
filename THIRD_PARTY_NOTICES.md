@@ -11,8 +11,8 @@ The original framework copyright notice is:
 
 Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
-The source repositories distribute their materials under OpenMDW-1.1. A copy is
-retained in `LICENSE` and in each `vendor/<backbone>/LICENSE`. Original file-level
+The Cosmos source repositories distribute their materials under OpenMDW-1.1. A copy is
+retained in `LICENSE`, `vendor/edge/LICENSE` and `vendor/nano/LICENSE`. Original file-level
 notices, including third-party notices within vendored modules, remain in place.
 New and adapted Sparse-WAM code in this directory is distributed under the same
 OpenMDW-1.1 terms. This does not claim that NVIDIA authored the local modifications.
@@ -24,3 +24,18 @@ official NVIDIA repository or product.
 
 Model checkpoints, datasets, CUDA libraries, PyTorch and other installed dependencies
 are external assets with their own applicable terms. No model weights are bundled.
+
+## FastWAM-Joint
+
+The BF16 runtime in `vendor/fastwam_joint` derives from Rockylix/Fastwam-joint,
+branch `version/asi-k56`, based on commit
+`88fed984c03ea963ee6cc24f7753c59c20908c2d`. The included K56 model and controller
+use the reference working-tree revisions recorded in `SOURCE_MANIFEST.json`.
+The manifest identifies the source and adapted file hashes, and records the
+committed file hashes for working-tree inputs that differ from that commit.
+
+The source checkout includes an MIT license with copyright (c) 2026 Rockylix,
+reproduced in `vendor/fastwam_joint/LICENSE`. Its README describes Qi as
+Apache-2.0. This discrepancy requires upstream clarification for redistribution.
+The reference checkpoint card for `Mikuz12/Spec-Wam-libero` separately declares
+Apache-2.0. The Joint snapshot contains source code and model configuration.

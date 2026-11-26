@@ -15,18 +15,20 @@ from sparse_wam.service import create_service
 
 | Entry point | Input | Output / responsibility |
 |---|---|---|
-| `SparseWAMConfig(backbone, execution="eager", nano_packing_cache=True)` | `backbone="edge"` or `"nano"`; execution `"eager"`, `"compile"` or `"compile-graph"` | Immutable method settings; `to_dict()` exports a configuration summary |
+| `SparseWAMConfig(backbone, execution="eager", nano_packing_cache=True)` | `"edge"`, `"nano"` or `"fastwam-joint"` with execution `"eager"`, `"compile"` or `"compile-graph"` | Immutable method settings; `to_dict()` exports a configuration summary |
 | `create_service(config, ...)` | Model checkpoint and optional native configuration | `(service, args)`; loads the model and installs the runner into native generation |
-| `service.infer(observation)` | One recorded RoboLab/DROID observation dictionary | Dictionary containing a NumPy `action` array and optionally decoded `video` |
-| `SparseWAMRunner(model, config, mode="sparse", generate=None)` | An already initialized matching native model | Callable wrapper around native `generate_samples_from_batch` |
+| `service.infer(observation)` | One recorded DROID (Cosmos) or LIBERO (Joint) observation dictionary | Dictionary containing a NumPy `action` array and optionally decoded `video` |
+| `SparseWAMRunner(model, config, mode="sparse", generate=None)` | An initialized native Cosmos model | Callable wrapper around native `generate_samples_from_batch` |
 | `runner(data_batch, **kwargs)` | One native, transformed/collated policy batch | Native output dictionary, including one-element `action` and `vision` tensor lists |
 
 `SparseWAMConfig` does not load weights. `config.to_dict()` describes the fixed
 method settings; it is not a native server configuration. The files
-`configs/edge.json` and `configs/nano.json` are exported summaries, not inputs to
+`configs/edge.json`, `configs/nano.json` and `configs/fastwam_joint.json` are exported summaries, not inputs to
 `--native-config`. Use `run_metadata("dense")` or `run_metadata("sparse")` for
 mode-specific metadata and `runner.last_summary` for the most recently completed
 request's actual execution summary.
+
+For the LIBERO observation fields and Joint asset paths, see [FastWAM-Joint](fastwam_joint.md).
 
 ## Offline Edge inference
 

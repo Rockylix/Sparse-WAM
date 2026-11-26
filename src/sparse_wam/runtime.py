@@ -1,4 +1,4 @@
-"""Select a Cosmos backend and attach Sparse-WAM to its native sampler."""
+"""Activate a vendored backend and wrap the native Cosmos sampler."""
 
 import json
 import math
@@ -8,27 +8,31 @@ import sys
 
 import torch
 
+from .config import BACKBONES
 from .controller import SparseWAMController
 from .nano_packing import reuse_nano_packing
 from .velocity import VelocityCacheSampler
 
 
 def activate_runtime(backbone):
-    if backbone not in ("edge", "nano"):
+    if backbone not in BACKBONES:
         raise ValueError("Unknown backbone")
-    root = Path(__file__).resolve().parents[2]
-    runtime = root / "vendor" / backbone
-    if not (runtime / "cosmos_framework").is_dir():
+    joint = backbone == "fastwam-joint"
+    runtime = Path(__file__).resolve().parents[2] / "vendor" / backbone.replace("-", "_")
+    package = runtime / ("fastwam_joint_native" if joint else "cosmos_framework")
+    if not package.is_dir():
         raise RuntimeError(
             "Use an editable install from the complete source checkout; vendored runtime is missing"
         )
-    # Upstream defaults to training imports, including optional storage clients.
-    # Select inference before framework modules read their process-wide flags.
-    os.environ.setdefault("COSMOS_TRAINING", "0")
-    existing = sys.modules.get("cosmos_framework")
+    if not joint:
+        # Select inference before Cosmos reads its process-wide flags on import.
+        os.environ.setdefault("COSMOS_TRAINING", "0")
+    existing = sys.modules.get(package.name)
     if existing is not None:
-        paths = [Path(p).resolve() for p in existing.__path__]
-        if paths != [(runtime / "cosmos_framework").resolve()]:
+        paths = [Path(p).resolve() for p in getattr(existing, "__path__", ())]
+        if paths != [package.resolve()]:
+            if joint:
+                raise RuntimeError("Another FastWAM-Joint runtime is already loaded")
             raise RuntimeError("Another cosmos_framework ABI is loaded; run Edge/Nano in separate processes")
     if str(runtime) not in sys.path:
         sys.path.insert(0, str(runtime))
@@ -60,6 +64,8 @@ class SparseWAMRunner:
     def __init__(self, model, config, *, mode="sparse", generate=None):
         if mode not in ("dense", "sparse"):
             raise ValueError("mode must be dense or sparse")
+        if config.backbone == "fastwam-joint":
+            raise ValueError("Use create_service for the FastWAM-Joint native runner")
         self.model, self.config, self.mode = model, config, mode
         self.generate = generate if generate is not None else model.generate_samples_from_batch
         self.last_summary = None

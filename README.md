@@ -50,7 +50,7 @@ Robust experiments on LIBERO-Plus with Fastwam-Joint.
 
 - [x] [Cosmos3 Edge on RTX 4090](docs/rtx4090.md)
 - [ ] Cosmos3 Nano Policy
-- [ ] FastWAM-Joint
+- [x] [FastWAM-Joint offline LIBERO inference on RTX 4090](docs/fastwam_joint.md)
 
 ## News
 

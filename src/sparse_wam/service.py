@@ -1,4 +1,4 @@
-"""Shared RoboLab/openpi service entry; native preprocessing and action semantics remain intact."""
+"""Offline policy services and optional Cosmos RoboLab/OpenPI serving."""
 
 import importlib
 import json
@@ -36,6 +36,10 @@ def create_service(
         overrides = json.loads(Path(native_config).read_text(encoding="utf-8"))
         if not isinstance(overrides, dict):
             raise ValueError("native_config must contain a JSON object")
+    if config.backbone == "fastwam-joint":
+        from .backends.fastwam_joint import create_joint_service
+
+        return create_joint_service(config, checkpoint, overrides, native_config, mode, seed)
     if overrides.get("sampler", "unipc") != "unipc":
         raise ValueError("Sparse-WAM requires sampler='unipc'")
     config.validate_generation({
@@ -107,6 +111,8 @@ def create_service(
 
 def serve(config, **kwargs):
     """Start the OpenPI WebSocket transport after checking it is installed."""
+    if config.backbone == "fastwam-joint":
+        raise ValueError("Use create_service for offline FastWAM-Joint LIBERO inference")
     native = _native_service_module(config.backbone)
     try:
         websocket_server = native._load_openpi_websocket_policy_server()

@@ -25,6 +25,10 @@ REQUIRED_FILES = (
     "configs/smoke_edge.json", "docs/method.md", "docs/validation.md",
     "docs/api.md", "docs/rtx4090.md",
     "examples/infer_edge.py", ".github/workflows/ci.yml",
+    "examples/infer_fastwam_joint.py", "configs/fastwam_joint.json",
+    "configs/smoke_fastwam_joint.json", "docs/fastwam_joint.md",
+    "src/sparse_wam/backends/fastwam_joint.py",
+    "tools/prepare_fastwam_joint_reference.py",
 )
 SOURCE_DIRECTORIES = ("src/sparse_wam", "vendor", "tools", "configs", "tests", "docs", "examples")
 FORBIDDEN_ROOTS = {"outputs", "checkpoints", "experiments", ".venv", "build", "dist"}
@@ -102,7 +106,7 @@ def check_wheel(path):
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         validate_paths(names)
-        for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+        for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md", "vendor/fastwam_joint/LICENSE"):
             require(any(name.endswith(f".dist-info/licenses/{filename}") for name in names),
                     f"Wheel is missing license attribution: {filename}")
         require("sparse_wam/runtime.py" in names, "Wheel is missing the public runtime module")
@@ -124,7 +128,9 @@ def check_unpacked_source(root):
         ("-m", "sparse_wam", "serve", "--help"),
         ("-m", "sparse_wam", "config", "--backbone", "edge"),
         ("-m", "sparse_wam", "config", "--backbone", "nano"),
+        ("-m", "sparse_wam", "config", "--backbone", "fastwam-joint"),
         ("examples/infer_edge.py", "--help"),
+        ("examples/infer_fastwam_joint.py", "--help"),
     )
     for command in commands:
         subprocess.run([sys.executable, *command], cwd=root, env=environment, check=True)

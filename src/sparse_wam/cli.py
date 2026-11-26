@@ -3,14 +3,14 @@
 import argparse
 import json
 
-from .config import SparseWAMConfig
+from .config import BACKBONES, SparseWAMConfig
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Sparse-WAM for Cosmos3 Edge/Nano")
+    parser = argparse.ArgumentParser(description="Sparse-WAM policy inference")
     commands = parser.add_subparsers(dest="command", required=True)
     show = commands.add_parser("config", help="Print the effective Sparse-WAM configuration")
-    show.add_argument("--backbone", choices=("edge", "nano"), required=True)
+    show.add_argument("--backbone", choices=BACKBONES, required=True)
     show.add_argument("--execution", choices=("eager", "compile", "compile-graph"), default="eager")
     show.add_argument("--no-nano-packing-cache", action="store_true")
     server = commands.add_parser("serve", help="Start the RoboLab/openpi policy server")

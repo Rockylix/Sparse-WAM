@@ -1,0 +1,6 @@
+{
+  "checkpoint_path": "../checkpoints/fastwam_joint/step_040000.pt",
+  "dataset_stats_path": "../checkpoints/fastwam_joint/dataset_stats.json",
+  "vae_path": "../checkpoints/fastwam_joint/Wan2.2_VAE.pth",
+  "text_cache_dir": "../checkpoints/fastwam_joint/text_embeds_cache/libero"
+}
